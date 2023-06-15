@@ -15,15 +15,6 @@ from langchain.schema import (
 from config import *
 
 
-CONVERSATIION = {
-    "rechtsfrage": str(),
-    "antwort": None,                 # answer to the question "not None" only if answered
-    "progress": str(),               # summary of the conversation
-    "gesetze_durchsucht": list(),    # list of gesetznamen (id - name - sektion)
-    "conversation_history": list(),  # list of messages
-}
-
-
 
 class LawAgent:
 
@@ -498,9 +489,6 @@ class LawAgent:
             new_gesetz_structure[new] = gesetz_structure[old]
 
         return new_gesetz_structure
-
-
-
 
 
 
