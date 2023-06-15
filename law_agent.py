@@ -50,12 +50,12 @@ class LawAgent:
 
         self.chat = ChatOpenAI(
             model="gpt-3.5-turbo",
-            temperature=0.15,
+            temperature=0.0,
             max_tokens=2048
         )
         self.chat_16k = ChatOpenAI(
             model="gpt-3.5-turbo-16k",
-            temperature=0.15,
+            temperature=0.0,
             max_tokens=4096
         )
 
@@ -453,10 +453,10 @@ class LawAgent:
 
     def structure_gesetz_helper(self, gesetz_structure):
         # Set up messages for structure cleaner chain
-        output_format = [["alter titel", "neuer (schoen formatierter) titel"]]
+        output_format = [["alter titel (zitiert)", "neuer titel (schoen formatierter)"]]
         messages = [
             SystemMessage(
-                content="Bitte konvertiere diese Liste in Namen mit einheitlicher Struktur.\n"
+                content="Bitte konvertiere diese Liste in Namen mit einheitlicher Struktur. Diese einheitliche Strukture sollte den Paragraphen als auch den Titel enthalten (sofern möglich bzw. gegeben).\n"
                 "Gib deine Antworten ausschließlich in form von JSON in folgendem Format aus:\n"
                 f"{output_format}"
             ),
