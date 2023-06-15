@@ -1,0 +1,5 @@
+Alles klar!
+Ich habe das Gesetz (nr. {gesetz_id}) im RIS gefunden! Dies ist die gesamte geltende Fassung:
+
+{geltende_fassung}
+

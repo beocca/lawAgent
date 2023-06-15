@@ -1,0 +1,12 @@
+{context}
+
+Aufgabe: Wähle das Gesetz, welches dir bei der Beantwortung deiner Frage hilfreich sein wird (nr - kurztitel):
+{laws}
+
+Ausgabeformat (JSON):
+{output_format}
+
+Achte darauf, dass deine Antwort exakt im definierten JSON Format ist. 
+Es darf nichts weggelassen werden!
+Es darf nichts hinzugefügt werden!
+Es ist nur JSON erlaubt!

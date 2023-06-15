@@ -1,0 +1,485 @@
+import json
+
+index = """
+1 VERFASSUNGS- UND ORGANISATIONSRECHT, MEDIENRECHT, ALLGEMEINE INTERNATIONALE ANGELEGENHEITEN
+10 VERFASSUNGSRECHT
+10/01 Bundes-Verfassungsgesetz (B-VG)
+10/02 Novellen zum B-VG, Ämter der Landesregierungen
+10/03 Nationalrat, Bundesrat
+10/04 Wahlen
+10/05 Bezüge, Unvereinbarkeit
+10/06 Direkte Demokratie
+10/07 Verfassungs- und Verwaltungsgerichtsbarkeit
+10/08 Volksanwaltschaft, Rechnungshof
+10/09 Gemeindeaufsicht
+10/10 Grundrechte, Datenschutz, Auskunftspflicht
+10/11 Vereins- und Versammlungsrecht
+10/12 Politische Parteien
+10/13 Amtshaftung, Organhaftpflicht, Polizeibefugnis-Entschädigung
+10/14 Staatliche Symbole, Nationalfeiertag
+10/15 Europäische Integration
+10/16 Sonstiges
+11 HOHEITSGEBIET, GRENZEN
+11/01 Staatsgrenzgesetz
+11/02 Grenzänderungen
+12 INTERNATIONALE ANGELEGENHEITEN
+12/01 Neutralität
+12/02 Privilegien, Immunitäten
+12/03 Entsendung ins Ausland
+12/04 Entwicklungshilfe
+12/05 Sonstiges
+13 STAATSVERTRAGSDURCHFÜHRUNG, KRIEGSFOLGEN
+13/01 Staatsvertragsdurchführung
+13/02 Vermögensrechtliche Kriegsfolgen
+13/03 Sonstiges
+14 ORGANISATIONSRECHT
+14/01 Verwaltungsorganisation
+14/02 Gerichtsorganisation
+15 UNABHÄNGIGKEITSERKLÄRUNG, RECHTSÜBERLEITUNG, ÜBERGANGSRECHT, RECHTSBEREINIGUNG
+16 MEDIENRECHT
+16/01 Medien, Presseförderung
+16/02 Rundfunk
+16/03 Plattformregulierung
+17 VEREINBARUNGEN GEMÄSS ART. 15a B-VG
+18 KUNDMACHUNGSWESEN
+19 VÖLKERRECHTLICHE VERTRÄGE
+19/01 Staatsverträge von St. Germain und Wien
+19/02 Staatsgrenzen
+19/03 Vereinte Nationen, Internationaler Gerichtshof (IGH)
+19/04 Europarat
+19/05 Menschenrechte
+19/06 Privilegien und Immunitäten
+19/07 Diplomatischer und konsularischer Verkehr
+19/08 Freundschafts- und Vergleichsverträge
+19/09 Niederlassungsverträge
+19/10 Friedenssicherung
+19/11 Kriegsrecht, Kriegsfolgen
+19/12 Gebietsansprüche
+19/13 Seerecht
+19/15 Vertragsrecht
+19/16 Berechnung von Fristen
+19/17 Gebietskörperschaften
+19/18 Entwicklungshilfe
+19/19 Konferenzen, Ausstellungen
+19/20 Amtssitzabkommen
+19/21 Angestellte internationaler Organisationen
+19/22 Amtshaftung
+2 ZIVIL- UND STRAFRECHT
+20 PRIVATRECHT ALLGEMEIN
+20/01 Allgemeines bürgerliches Gesetzbuch (ABGB)
+20/02 Familienrecht
+20/03 Erwachsenenschutz
+20/04 Erbrecht einschließlich Anerbenrecht
+20/05 Wohn- und Mietrecht
+20/06 Konsumentenschutz
+20/07 Schadenersatz, Haftpflicht
+20/08 Urheberrecht
+20/09 Internationales Privatrecht
+20/10 Priester, Ordensleute
+20/11 Grundbuch
+20/12 Urkunden
+20/13 Sonstiges
+21 HANDELS- UND WERTPAPIERRECHT
+21/01 Handelsrecht
+21/02 Aktienrecht
+21/03 GesmbH-Recht
+21/04 Genossenschaftsrecht
+21/05 Börse
+21/06 Wertpapierrecht
+21/07 Sonstiges
+22 ZIVILPROZESS, AUSSERSTREITIGES VERFAHREN
+22/01 Jurisdiktionsnorm
+22/02 Zivilprozessordnung
+22/03 Außerstreitverfahren
+22/04 Sonstiges
+23 INSOLVENZRECHT, EXEKUTIONSRECHT
+23/01 Insolvenzordnung
+23/02 Anfechtungsordnung
+23/03 Sonstiges Insolvenzrecht
+23/04 Exekutionsordnung
+23/05 Sonstiges Exekutionsrecht
+24 STRAFRECHT
+24/01 Strafgesetzbuch
+24/02 Jugendgerichtsbarkeit
+24/03 Sonstiges
+25 STRAFPROZESS, STRAFVOLLZUG
+25/01 Strafprozess
+25/02 Strafvollzug
+25/03 Amnestien
+25/04 Sonstiges
+26 GEWERBLICHER RECHTSSCHUTZ
+26/01 Wettbewerbsrecht
+26/02 Marken- und Musterschutz
+26/03 Patentrecht
+26/04 Sonstiges
+27 RECHTSPFLEGE
+27/01 Rechtsanwälte
+27/02 Notare
+27/03 Gerichts- und Justizverwaltungsgebühren
+27/04 Sonstiges
+28 FREI
+29 VÖLKERRECHTLICHE VERTRÄGE
+29/01 Zivilrecht
+29/02 Internationales Privatrecht
+29/03 Zivilprozess
+29/04 Internationales Wechsel- und Scheckrecht
+29/05 Rechtshilfe in Zivil- und Handelssachen
+29/06 Urheberrecht
+29/07 Gewerblicher Rechtsschutz
+29/08 Strafrecht
+29/09 Auslieferung, Rechtshilfe in Strafsachen
+29/10 Strafprozess, Strafvollzug
+29/11 Anerkennung und Vollstreckung gerichtlicher Entscheidungen
+29/12 Geltendmachung und Vollstreckung von Unterhaltsansprüchen
+29/13 Anerkennung und Vollstreckung von Schiedssprüchen
+29/14 Beglaubigung ausländischer Urkunden (Befreiung)
+3 FINANZRECHT, GELD-, WÄHRUNGS- UND KREDITRECHT
+30 FINANZVERFASSUNG, FINANZAUSGLEICH
+30/01 Finanzverfassung
+30/02 Finanzausgleich
+31 BUNDESHAUSHALT
+31/01 Allgemeines Haushaltsrecht, Bundesbudget
+31/02 Verfügungen über Bundesvermögen
+31/03 Bundeshaftung, Anleihen
+31/04 Bundesbeteiligungen
+31/05 Förderungen, Zuschüsse, Fonds
+31/06 Sanierungen
+32 STEUERRECHT
+32/01 Finanzverfahren, allgemeines Abgabenrecht
+32/02 Steuern vom Einkommen und Ertrag
+32/03 Steuern vom Vermögen
+32/04 Steuern vom Umsatz
+32/05 Verbrauchsteuern
+32/06 Verkehrsteuern
+32/07 Stempel- und Rechtsgebühren, Stempelmarken
+32/08 Sonstiges
+33 BEWERTUNGSRECHT
+34 MONOPOLE
+35 ZOLLRECHT
+35/01 Bundesverfassungsgesetz
+35/02 Zollgesetz
+35/03 Taragesetz, Wertzollgesetz
+35/04 Zolltarifgesetz, Präferenzzollgesetz
+35/05 Sonstiges
+36 WIRTSCHAFTSTREUHÄNDER
+37 GELD-, WÄHRUNGS- UND KREDITRECHT
+37/01 Geld- und Währungsrecht
+37/02 Kreditwesen
+37/03 Nationalbank
+37/04 Internationale Finanzinstitutionen
+37/05 Sonstiges
+38 PUNZIERUNG
+39 VÖLKERRECHTLICHE VERTRÄGE
+39/01 Finanzinstitutionen, Währungsabkommen
+39/02 Finanzierungsabkommen, Finanzhilfe
+39/03 Doppelbesteuerung
+39/04 Zollabkommen
+39/05 Zollbegünstigungen
+39/06 Rechts- und Amtshilfe
+39/07 Zahlungsverkehr
+39/08 Vermögensrechtliche Angelegenheiten
+39/09 Auslandsschulden
+39/10 Punzierung
+39/11 EU-Haushaltsrecht
+4 INNERE VERWALTUNG UND WEHRRECHT
+40 VERWALTUNGSVERFAHREN
+40/01 Verwaltungsverfahrensgesetze
+40/02 Sonstiges
+41 INNERE ANGELEGENHEITEN
+41/01 Sicherheitsrecht
+41/02 Staatsbürgerschaft, Pass- und Melderecht, Fremdenrecht, Asylrecht
+41/03 Personenstandsrecht
+41/04 Sprengmittel, Waffen, Munition
+41/05 Stiftungen, Fonds
+41/06 Pornographie
+41/07 Grenzüberwachung
+41/08 Ehrenzeichen, Orden, Uniformen, Abzeichen
+41/09 Internationale Amtshilfe
+41/10 Sonstiges
+42 FREI
+43 WEHRRECHT
+43/01 Wehrrecht allgemein
+43/02 Leistungsrecht
+44 ZIVILDIENST
+45 FREI
+46 STATISTIK
+46/01 Bundesstatistikgesetz 1965
+46/02 Sonstiges
+47 FREI
+48 FREI
+49 VÖLKERRECHTLICHE VERTRÄGE
+49/01 Flüchtlinge
+49/02 Staatsbürgerschaft, Staatenlosigkeit
+49/03 Personenstand
+49/04 Grenzverkehr
+49/05 Reisedokumente, Sichtvermerke
+49/06 Schubverkehr
+49/07 Statistik
+49/08 Amtshilfe, Zustellung von Schriftstücken
+49/09 Militärische Waffen
+49/10 Kriegsgräber
+49/11 Internationale Sicherheit
+49/12 Zivilschutz
+5 WIRTSCHAFT
+50 GEWERBERECHT
+50/01 Gewerbeordnung
+50/02 Sonstiges Gewerberecht
+50/03 Personen- und Güterbeförderung
+50/04 Berufsausbildung
+50/05 Kammern der gewerblichen Wirtschaft
+51 FREI
+52 FREI
+53 WIRTSCHAFTSFÖRDERUNG
+54 AUSSENHANDEL
+54/01 Ausfuhrförderung
+54/02 Außenhandelsgesetz
+54/03 EFTA
+54/04 EG
+54/05 EGKS
+54/06 GATT
+54/07 Sonstiges Außenhandelsrecht
+55 WIRTSCHAFTSLENKUNG
+56 ÖFFENTLICHE WIRTSCHAFT
+56/01 Verstaatlichung
+56/02 Verstaatlichte Banken
+56/03 ÖBB
+56/04 Sonstiges
+57 VERSICHERUNGEN
+57/01 Versicherungsaufsicht
+57/02 Förderungen
+57/03 Betriebliche und private Altersvorsorge
+57/09 Sonstiges
+58 BERG- UND ENERGIERECHT
+58/01 Bergrecht
+58/02 Energierecht
+58/03 Sicherung der Energieversorgung
+58/04 Kernenergie
+58/05 Förderungen
+59 VÖLKERRECHTLICHE VERTRÄGE
+59/01 EFTA
+59/02 EFTA-Länder
+59/03 GATT, Welthandelsorganisation
+59/04 EU - EWR
+59/05 EGKS
+59/06 Energie
+59/07 Kernenergie
+59/08 Rohstoffe, Nahrungsmittel
+59/09 Wirtschaftliche und industrielle Zusammenarbeit, Investitionen
+59/10 Handelsabkommen
+59/11 Textilabkommen
+59/12 Fremdenverkehr
+6 ARBEITSRECHT, DIENSTRECHT, SOZIALE SICHERHEIT
+60 ARBEITSRECHT
+60/01 Arbeitsvertragsrecht
+60/02 Arbeitnehmerschutz
+60/03 Kollektives Arbeitsrecht
+60/04 Arbeitsrecht allgemein
+61 FAMILIENFÖRDERUNG, JUGENDFÜRSORGE
+61/01 Familienlastenausgleich
+61/02 Familienberatung
+61/03 Familienpolitischer Beirat
+61/04 Jugendfürsorge
+62 ARBEITSMARKTVERWALTUNG
+63 ALLGEMEINES DIENST- UND BESOLDUNGSRECHT
+63/01 Beamten-Dienstrechtsgesetz 1979
+63/02 Gehaltsgesetz 1956
+63/03 Vertragsbedienstetengesetz 1948
+63/04 Bundesbedienstetenschutz
+63/05 Reisegebührenvorschrift
+63/06 Dienstrechtsverfahren
+63/07 Personalvertretung
+63/08 Sonstiges
+63/09 Nachkriegs- und Übergangsrecht
+64 BESONDERES DIENST- UND BESOLDUNGSRECHT
+64/01 Hochschullehrer
+64/02 Bundeslehrer
+64/03 Landeslehrer
+64/04 ÖBB
+64/05 Sonstiges
+65 PENSIONSRECHT FÜR BUNDESBEDIENSTETE
+65/01 Allgemeines Pensionsrecht
+65/02 Besonderes Pensionsrecht
+65/03 Nachkriegs- und Übergangsrecht
+66 SOZIALVERSICHERUNG
+66/01 Allgemeines Sozialversicherungsgesetz
+66/02 Andere Sozialversicherungsgesetze
+66/03 Sonstiges
+67 VERSORGUNGSRECHT
+68 BEHINDERTENEINSTELLUNG, SONSTIGES SOZIALRECHT
+68/01 Behinderteneinstellung
+68/02 Sonstiges Sozialrecht
+69 VÖLKERRECHTLICHE VERTRÄGE
+69/01 Internationale Arbeitsorganisation
+69/02 Arbeitsrecht
+69/03 Soziale Sicherheit
+69/04 Ausländerbeschäftigung
+69/05 Fürsorgewesen
+69/06 Kriegsopfer
+7 SCHULEN, WISSENSCHAFT, KIRCHE, KULTUR, SPORT
+70 SCHULEN
+70/01 Schulverwaltung, Schulaufsicht
+70/02 Schulorganisation
+70/03 Schulerhaltung
+70/04 Schulzeit
+70/05 Schulpflicht
+70/06 Schulunterricht
+70/07 Schule und Kirche
+70/08 Privatschulen
+70/09 Minderheiten-Schulrecht
+70/10 Schülerbeihilfen
+70/11 Sonstiges
+71 LAND- UND FORSTWIRTSCHAFTLICHE SCHULEN
+72 HOCHSCHULEN, WISSENSCHAFT UND FORSCHUNG
+72/01 Hochschulorganisation
+72/02 Studienrecht allgemein
+72/03 Theologische Studienrichtungen
+72/04 Studienrichtung Rechtswissenschaft
+72/05 Studienrichtung Medizin
+72/06 Studienrichtung Veterinärmedizin
+72/07 Geistes- und naturwissenschaftliche Studienrichtungen
+72/08 Technische Studienrichtungen
+72/09 Sozial- und wirtschaftswissenschaftliche Studienrichtung
+72/10 Montanistische Studienrichtungen
+72/11 Studienrichtungen der Bodenkultur
+72/12 Studien an den Hochschulen künstlerischer Richtung
+72/13 Studienförderung
+72/14 Hochschülerschaft
+72/15 Forschung
+72/16 Sonstiges
+73 AUSBILDUNGSPFLICHT
+74 KIRCHEN, RELIGIONSGEMEINSCHAFTEN
+74/01 Gesetzliche Anerkennung, äußere Rechtsverhältnisse
+74/02 Finanzielle Angelegenheiten
+74/03 Sonstige
+75 VOLKSBILDUNG
+76 ANERKENNUNGEN
+77 KUNST, KULTUR
+78 SPORT
+79 VÖLKERRECHTLICHE VERTRÄGE
+79/01 Schulen, Universitäten
+79/02 Forschung
+79/03 Kooperationsabkommen (Kultur, Wissenschaft, Technik)
+79/04 Kultur- und Denkmalschutz
+79/05 UNESCO
+79/06 Kirchen, Religionsgemeinschaften
+79/07 Sport
+79/08 Rechtswissenschaft
+8 LAND- UND FORSTWIRTSCHAFT, GESUNDHEIT, UMWELTSCHUTZ, VETERINÄRRECHT
+80 LAND- UND FORSTWIRTSCHAFT
+80/01 Organisationsrecht
+80/02 Forstrecht
+80/03 Weinrecht
+80/04 Wettbewerbsrecht
+80/05 Pflanzenschutz, Schädlingsbekämpfung
+80/06 Bodenreform
+80/07 Förderungen
+80/08 Zivilrecht
+81 WASSERRECHT, WASSERBAUTEN
+81/01 Wasserrechtsgesetz 1959
+81/02 Sonstiges
+82 GESUNDHEITSRECHT
+82/01 Gesundheitsrecht, Organisationsrecht
+82/02 Gesundheitsrecht allgemein
+82/03 Ärzte, sonstiges Sanitätspersonal
+82/04 Apotheken, Arzneimittel
+82/05 Lebensmittelrecht
+82/06 Krankenanstalten, Kurorte
+82/07 Sonstiges
+83 NATUR-, UMWELT- UND KLIMASCHUTZ
+84 FREI
+85 FREI
+86 VETERINÄRRECHT
+86/01 Veterinärrecht allgemein
+86/02 Tierärzte
+87 FREI
+88 FREI
+89 VÖLKERRECHTLICHE VERTRÄGE
+89/01 Land- und Forstwirtschaft
+89/02 Wasserwirtschaft in Grenzgebieten
+89/03 Gesundheit
+89/04 Arzneimittel
+89/05 Suchtgifte
+89/06 Lebensmittel
+89/07 Umweltschutz
+89/08 Tier- und Pflanzenschutz
+89/09 Veterinärrecht
+9 VERKEHR, TECHNIK, STRASSENBAU, WOHNBAU, VERGABEWESEN
+90 STRASSENVERKEHRSRECHT, KRAFTFAHRRECHT
+90/01 Straßenverkehrsrecht
+90/02 Kraftfahrrecht
+90/03 Sonstiges
+91 POST- UND FERNMELDEWESEN
+91/01 Fernmeldewesen
+91/02 Post
+92 LUFT- UND WELTRAUMFAHRT
+93 EISENBAHN, PASSAGIER- UND FAHRGASTRECHTE
+93/01 Eisenbahn
+93/02 Passagier- und Fahrgastrechte
+94 SCHIFFFAHRT
+94/01 Schiffsverkehr
+94/02 Schiffsregister, Zivilrecht
+94/03 Sonstiges
+95 TECHNIK
+95/01 Elektrotechnik
+95/02 Maß- und Eichrecht
+95/03 Vermessungsrecht
+95/04 Beschussrecht
+95/05 Normen, Zeitzählung
+95/06 Ziviltechniker
+95/07 Dampfkesselrecht
+95/08 Sonstiges
+96 STRASSENBAU
+96/01 Bundesstraßengesetz 1971
+96/02 Sonstiges
+97 ÖFFENTLICHES AUFTRAGSWESEN
+98 WOHNBAU
+98/01 Wohnbauförderung
+98/02 Wohnungsverbesserung, Startwohnungen, Beihilfen
+98/03 Wohnbaufinanzierung
+98/04 Wohnungsgemeinnützigkeit
+98/05 Sonstiges
+99 VÖLKERRECHTLICHE VERTRÄGE
+99/01 Straßenverkehr
+99/02 Personen- und Gütertransport auf der Straße
+99/03 Kraftfahrrecht
+99/04 Luft- und Weltraumfahrt
+99/05 Eisenbahnen
+99/06 See- und Binnenschifffahrt
+99/07 Post- und Fernmeldewesen
+99/08 Technik (Eichrecht, Vermessungsrecht, Beschussrecht ua.)
+99/09 Meteorologie
+99/10 Raumordnung
+"""
+
+
+laws = {}
+current_category = None
+current_subcategory = None
+for row in index.strip().split("\n"):
+    row = row.strip()
+    if row == "":continue
+
+    words = row.split(" ")
+
+    if len(words[0]) == 1:
+        laws[row] = {}
+        current_category = row
+
+    elif len(words[0]) == 2:
+        laws[current_category][row] = {}
+        current_subcategory = row
+
+    elif len(words[0]) == 5:
+        laws[current_category][current_subcategory][row] = []
+
+
+# save as json
+with open("ris/bundesrecht_index.json", "w") as f:
+    json.dump(laws, f, indent=4)
+
+
+
+
+
+
+

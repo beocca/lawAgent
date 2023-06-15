@@ -1,0 +1,12 @@
+{context}
+
+Aufgabe: Wähle eine der folgenden Kategorien welches dir bei der Beantwortung der Frage ab besten helfen wird:
+{categories}
+
+Ausgabeformat (JSON):
+{output_format}
+
+Achte darauf, dass deine Antwort exakt im definierten JSON Format ist. 
+Es darf nichts weggelassen werden!
+Es darf nichts hinzugefügt werden!
+Es ist nur dieses exakte JSON format erlaubt!

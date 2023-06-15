@@ -1,0 +1,14 @@
+{context}
+
+Ich habe das nun das Gesetz "{gesetz}" im RIS gefunden! Es ist jedoch sehr lang. Das ist die grobe Struktur des Gesetzes:
+{struktur}
+
+Aufgabe: Wähle einen oder mehrere Teile aus, die dir bei der Beantwortung der Rechtsfrage helfen werden!
+
+Ausgabeformat (JSON):
+{output_format}
+
+Achte darauf, dass deine Antwort exakt im definierten JSON Format ist. 
+Es darf nichts weggelassen werden!
+Es darf nichts hinzugefügt werden!
+Es ist nur JSON erlaubt!
