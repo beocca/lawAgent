@@ -1,10 +1,13 @@
 import os
 import json
 import string
+import random
 
 import requests
 from bs4 import BeautifulSoup
 
+from langchain import LLMChain
+from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import (
 	SystemMessage,
@@ -50,13 +53,19 @@ class LawAgent:
 
         self.chat = ChatOpenAI(
             model="gpt-3.5-turbo",
-            temperature=0.0,
+            temperature=0.5,
             max_tokens=2048
         )
         self.chat_16k = ChatOpenAI(
             model="gpt-3.5-turbo-16k",
-            temperature=0.0,
+            temperature=0.5,
             max_tokens=4096
+        )
+
+        self.llm_curie = OpenAI(
+            model="text-curie-001",
+            temperature=0.0,
+            max_tokens=1024
         )
 
         self.summary = dict()
@@ -76,75 +85,95 @@ class LawAgent:
         # main function to answer a question
 
         ## INIT MAIN VARIABLES FOR AGENT
-        self.rechtsfrage = question
-        self.add_message(SystemMessage(content=self.prompts["system"]))
+        if isinstance(question, str):
+            self.rechtsfrage = question
+            self.add_message(SystemMessage(content=self.prompts["system"]))
         
-
-        while True:
-                
-            ## CHOOSE GESETZ
-            # define layers, erstelle zusammenfassung und reset messages
-            layers = self.define_layers()
-            self.summarize_progress()
-            self.reset_messages(out=True)
-
-            # choose gesetz, erstelle zusammenfassung und reset messages
-            
-            gesetz = self.choose_gesetz(layers)
-            self.gesetze_durchsucht.append(gesetz)
-            self.summarize_progress()
-            self.reset_messages(out=True)
-
-            if gesetz.lower() == "nichts gefunden": 
-                continue
-
-            ## SCRAPE GESETZ
-            assert len(gesetz.split(" - ")) == 2
-            gesetz_id, gesetz_name = gesetz.split(" - ")
-            gesetz_structure = self.get_gesetz_structure(gesetz_id)
-
-            gesetz_is_long = sum([
-                len(k) + len("".join(v)) for k, v in gesetz_structure.items()]
-            ) > 1000
-
-            if gesetz_is_long:
-                ## CHOOSE SEKTION VON GESETZ            
-                # choose sektion
-                chosen_section = self.choose_section_from_gesetz(gesetz, gesetz_structure)
-
-                # show requested section and try to answer question with it 
-                analysis = self.analyze_section_from_gesetz(gesetz, gesetz_structure, chosen_section)
-            
-            else:
-                analysis = self.analyze_full_gesetz(gesetz, gesetz_structure)
-
-
-            vermutung = analysis["vermutung"]
-            
-
-            ## DECISION
-            if vermutung.lower() == "noch nicht":
-                # TODO: create summary and start over
+        elif isinstance(question, dict):
+            # TODO: init variables from previous conversation state
+            raise NotImplementedError
+        
+        try:
+            while True:
+                    
+                ## CHOOSE GESETZ
+                # define layers, erstelle zusammenfassung und reset messages
+                layers = self.define_layers()
                 self.summarize_progress()
-                self.reset_messages()
+                self.reset_messages(out=True)
+
+                # choose gesetz, erstelle zusammenfassung und reset messages
+                gesetz = self.choose_gesetz(layers)
+                self.summarize_progress()
+                self.reset_messages(out=True)
+
+                if gesetz.lower() == "nichts gefunden":
+                    # create summary and start over
+                    self.summarize_progress()
+                    self.reset_messages()
+                    continue
+
+                ## SCRAPE GESETZ
+                assert len(gesetz.split(" - ")) == 2
+                gesetz_id, gesetz_name = gesetz.split(" - ")
+                gesetz_structure = self.get_gesetz_structure(gesetz_id)
+                gesetz_is_long = sum([
+                    len(k) + len("".join(v)) for k, v in gesetz_structure.items()]
+                ) > 2000
+
+                if gesetz_is_long:
+                    ## CHOOSE SEKTION VON GESETZ            
+                    # choose sektion and analyse
+                    chosen_section = self.choose_section_from_gesetz(gesetz, gesetz_structure) 
+                    analysis = self.analyze_section_from_gesetz(gesetz, gesetz_structure, chosen_section)
+                    # add gesetz to gesetze_durchsucht
+                    analyzed_section = analysis["analysierte_sektion"]
+                    self.gesetze_durchsucht.append(f"{gesetz} - {analyzed_section}")
                 
+                else:
+                    ## ANALYZE FULL GESETZ
+                    # analyse
+                    analysis = self.analyze_full_gesetz(gesetz, gesetz_structure)
+                    # add gesetz to gesetze_durchsucht
+                    self.gesetze_durchsucht.append(gesetz)
 
 
-            else:
-                # create final report
+                ## DECISION
+                vermutung = analysis["vermutung"]
+                if vermutung.lower() == "noch nicht":
+                    # create summary and start over
+                    self.summarize_progress()
+                    self.reset_messages()
+                    continue
+
+                else:
+                    # create final report
+                    final_report = self.create_final_report()
+
+                    # save whole conversation
+                    save_dict = {
+                        "rechtsfrage": self.rechtsfrage,
+                        "gesetze_durchsucht": self.gesetze_durchsucht,
+                        "summary": self.summary,
+                        "final_report": final_report,
+                        "conversation_history": [f"{m.type}: {m.content}" for m in self.conversation_history]
+                    }
+
+                    # save conversation history
+                    frage_str = self.rechtsfrage.replace(" ", "_").replace("?", "").replace("!", "").replace(".", "").strip()
+                    with open(os.path.join("answered", f"conversation_history_{frage_str}.json"), "w") as f:
+                        json.dump(save_dict, f, indent=4, ensure_ascii=False)
+                    
+                    # reset messages and break loop
+                    self.reset_messages()
+                    break
+
+        except KeyboardInterrupt:
+            # TODO: stop and summarize conversation
+            # TODO: save whole conversation status
+            pass
 
 
-                final_report = self.create_final_report()
-                # TODO: save whole conversation
-                
-                
-
-                break
-
-
-
-            ## DECIDE IF QUESTION IS ANSWERED
-            # TODO: 
 
 
     def lookup_bundesrecht(self, layers):
@@ -182,16 +211,15 @@ class LawAgent:
         
         # Define initial variables
         layers = list()
-        output_format = {"kategorie": "gewaehlte Kategorie inklusive voranstehende Zahl"}
 
         ## Set layers
-        layers = self.define_layer(layers, output_format, f"Zu beantwortende Rechtsfrage: {self.rechtsfrage}")  # first layer
+        layers = self.define_layer(layers, f"Zu beantwortende Rechtsfrage: {self.rechtsfrage}")  # first layer
         assert len(layers) == 1
         assert layers[0] in self.bundesrecht_index.keys()
-        layers = self.define_layer(layers, output_format, f"Du hast {layers[0]} gewaehlt.")                      # second layer
+        layers = self.define_layer(layers, f"Du hast {layers[0]} gewaehlt.")                      # second layer
         assert len(layers) == 2
         assert layers[1] in self.bundesrecht_index[layers[0]].keys()
-        layers = self.define_layer(layers, output_format, f"Du hast {layers[1]} gewaehlt.")                      # third layer
+        layers = self.define_layer(layers, f"Du hast {layers[1]} gewaehlt.")                      # third layer
         assert 2 <= len(layers) <= 3
 
         if layers[-1] is not None:
@@ -201,13 +229,21 @@ class LawAgent:
         return layers
 
 
-    def define_layer(self, layers, output_format, context):
+    def define_layer(self, layers, context):
 
         next_layer = self.lookup_bundesrecht(layers)
         if next_layer is None: return layers
+        assert len(next_layer) > 0
+
+        # get 2 random choices if possible
+        if len(next_layer) < 2: rand = next_layer[1]
+        else:
+            random_choices = random.sample(next_layer, 2)
+            rand = f"{random_choices[0]}, {random_choices[1]}, ..."
+        
+        output_format = {"kategorie": f"gewaehlte Kategorie inklusive voranstehende Zahl, z.B. {rand}"}
         
         # Define human message
-        output_format = {"kategorie": "gewaehlte Kategorie inklusive voranstehende Zahl"}
         current_human_message = HumanMessage(
             content=self.prompts["kategorie_waehlen"].format(
                 context=context,
@@ -246,7 +282,11 @@ class LawAgent:
         zusammenfassung = self.summary["zusammenfassung"]
         context = f"Zu beantwortende Rechtsfrage: {self.rechtsfrage}\n\nZusammenfassung des bisherigen Fortschritts: {zusammenfassung}"
 
-        gesetze = [g["gesetzesnummer"] + " - " + g["kurztitel"] for g in self.bundesrecht_gesetze_for_category(layers)]
+        gesetze = [
+            g["gesetzesnummer"] + " - " + g["kurztitel"]
+            for g in self.bundesrecht_gesetze_for_category(layers)
+            if len(str(g["gesetzesnummer"]).strip()) > 0
+        ]
         output_format = {"nummer": "die davorstehende nummer des gesetzes", "titel": "der titel des gewählten gesetzes 'nichts gefunden'"}
         current_human_message = HumanMessage(
             content=self.prompts["gesetz_waehlen"].format(
@@ -321,6 +361,7 @@ class LawAgent:
         output_format = {
             "vermutung": "stelle eine Vermutungen an ob der gebene Teil ausreichend ist um die Frage zu beantworten? waehle aus folgender liste: 'ja' | 'nein'",
             "begruendung": "eine kurze begruendung warum",
+            "analysierte_sektion": "der name oder id der sektion die analysiert wurde",
             "loesungsansatz": "wie koennte die frage beantwortet werden?",
             "naechster schritt": "was sollte als naechstes getan werden? waehle aus folgender liste: 'neues_gesetz' | 'done' "
         }
@@ -363,9 +404,8 @@ class LawAgent:
 
         # clean human message
         human_message = HumanMessage(
-            content=self.clean_text(human_message.content)
+            content=self.clean_text(human_message.content) + "\n\n"
         )
-
 
         # append human message to conversation history and agent memory
         self.add_message(human_message)
@@ -379,10 +419,8 @@ class LawAgent:
 
         # do checks and return 
         assert isinstance(response, AIMessage)
-        try:
-            return json.loads(response.content)
-        except:
-            return response.content
+        return json.loads(response.content)
+        # TODO: handle this better! -> i.e. return a message that the agent did not understand the human message
 
 
     def reset_messages(self, out=False):
@@ -452,12 +490,57 @@ class LawAgent:
 
 
     def structure_gesetz_helper(self, gesetz_structure):
+
+        # load prompt
+        prompt = None
+        with open(os.path.join("chains", "00_helper", "clean_gesetz_section_title.txt"), "r") as f:
+            prompt = f.read()
+        assert prompt is not None
+
+
+        # initialize variables for loop
+        cleaned_section_names = []
+        section_names = list(gesetz_structure.keys())
+
+        # loop over all section names
+        for i, section_name in enumerate(section_names):
+
+            llm_chain = LLMChain(prompt=prompt, llm=self.llm_curie)
+            chain_input = prompt.format(eingabe=section_name)
+            response = llm_chain.run(chain_input)
+
+            # clean response
+            response = response.split("\n")[0]
+            response = response.strip()
+
+            cleaned_section_names.append(response)
+
+        # Create new gesetz structure and return it
+        new_gesetz_structure = {}
+        assert len(cleaned_section_names) == len(gesetz_structure.keys())
+        for old, new in zip(gesetz_structure.keys(), cleaned_section_names):
+            new_gesetz_structure[new] = gesetz_structure[old.replace(" ", "")]
+            
+
+        return new_gesetz_structure
+
+
+
+
+
+
+
+
+    def structure_gesetz_helper_old(self, gesetz_structure):
         # Set up messages for structure cleaner chain
-        output_format = [["alter titel (zitiert)", "neuer titel (schoen formatierter)"]]
+        output_format = ["neuer titel (schoen formatierter)"]
         messages = [
             SystemMessage(
-                content="Bitte konvertiere diese Liste in Namen mit einheitlicher Struktur. Diese einheitliche Strukture sollte den Paragraphen als auch den Titel enthalten (sofern möglich bzw. gegeben).\n"
-                "Gib deine Antworten ausschließlich in form von JSON in folgendem Format aus:\n"
+                content="Bitte konvertiere diese Liste in Namen mit einheitlicher Struktur. " \
+                        "Diese einheitliche Strukture sollte den Paragraphen als auch den Titel enthalten. "\
+                        "Sollten unvollständige Satzteile dabei sein, entferne diese." \
+                        "Sollten diese Titel doppelte Teile haben, entferne die doppelten Teile.\n" \
+                        "Gib deine Antworten ausschließlich in form von JSON in folgendem Format aus:\n"
                 f"{output_format}"
             ),
             HumanMessage(
@@ -469,9 +552,9 @@ class LawAgent:
         section_names = list(gesetz_structure.keys())
 
         # Process sections in batches of 10
-        for i in range(0, len(section_names), 10):
+        for i in range(0, len(section_names), 50):
         # for i in range(0, 10, 10):
-            batch = section_names[i:i+10]
+            batch = section_names[i:i+50]
             messages[-1] = HumanMessage(content=str(batch))
 
             # Let agent clean the structure for the current batch
@@ -479,16 +562,19 @@ class LawAgent:
             response = response.content.replace("'", '"')
             cleaned_batch = json.loads(response)
 
-            for row in cleaned_batch:
-                assert len(row) == 2
-                cleaned_section_names.append(row)
+            for row in cleaned_batch: cleaned_section_names.append(row)
 
         # Create new gesetz structure and return it
         new_gesetz_structure = {}
-        for old, new in cleaned_section_names:
-            new_gesetz_structure[new] = gesetz_structure[old]
+        assert len(cleaned_section_names) == len(gesetz_structure.keys())
+        for old, new in zip(gesetz_structure.keys(), cleaned_section_names):
+            new_gesetz_structure[new] = gesetz_structure[old.replace(" ", "")]
+            
 
         return new_gesetz_structure
+    
+
+
 
 
 
@@ -497,6 +583,7 @@ if __name__ == "__main__":
     
     la = LawAgent()
     la.run("Wie schnell darf ich auf der Autobahn fahren?")
+    la.run("Wie lange darf ein sich ein 15 jähriger in der Nacht auf der Straße aufhalten?")
 
 
     print("...done")

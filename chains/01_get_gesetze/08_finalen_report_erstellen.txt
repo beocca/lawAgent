@@ -2,10 +2,8 @@ Toll! Du konntest die Frage beantworten.
 
 Aufgabe: Gib nun bitte einen finalen Report darüber ab was du getan hast. 
 
-Ausgabeformat (JSON):
+Benötigtes Ausgabeformat (JSON):
 {output_format}
 
-Achte darauf, dass deine Antwort exakt im definierten JSON Format ist. 
-Es darf nichts weggelassen werden!
-Es darf nichts hinzugefügt werden!
-Es ist nur JSON erlaubt!
+Halte dich strikt an das benötigte Ausgabeformat!
+Löse ausschließlich die gestellte Aufgabe!

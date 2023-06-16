@@ -1,5 +1,13 @@
 Alles klar!
 Ich habe das Gesetz (nr. {gesetz_id}) im RIS gefunden! Dies ist die gesamte geltende Fassung:
-
 {geltende_fassung}
 
+
+Aufgabe: Analysiere den Gesetzestext und versuche damit die gegebene Rechtsfrage zu beantworten.
+
+
+Benötigtes Ausgabeformat (JSON):
+{output_format}
+
+Halte dich strikt an das benötigte Ausgabeformat!
+Löse ausschließlich die gestellte Aufgabe!
