@@ -6,6 +6,8 @@ import random
 import requests
 from bs4 import BeautifulSoup
 
+from openai.error import InvalidRequestError
+
 from langchain import LLMChain
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
@@ -53,12 +55,12 @@ class LawAgent:
 
         self.chat = ChatOpenAI(
             model="gpt-3.5-turbo",
-            temperature=0.5,
+            temperature=0,
             max_tokens=2048
         )
         self.chat_16k = ChatOpenAI(
             model="gpt-3.5-turbo-16k",
-            temperature=0.5,
+            temperature=0,
             max_tokens=4096
         )
 
@@ -97,20 +99,20 @@ class LawAgent:
             while True:
                     
                 ## CHOOSE GESETZ
-                # define layers, erstelle zusammenfassung und reset messages
+                # define layers, choose gesetz, erstelle zusammenfassung und reset messages
                 layers = self.define_layers()
-                self.summarize_progress()
-                self.reset_messages(out=True)
-
-                # choose gesetz, erstelle zusammenfassung und reset messages
                 gesetz = self.choose_gesetz(layers)
                 self.summarize_progress()
                 self.reset_messages(out=True)
 
+                # choose gesetz, erstelle zusammenfassung und reset messages
+                # self.summarize_progress()
+                # self.reset_messages(out=True)
+
                 if gesetz.lower() == "nichts gefunden":
                     # create summary and start over
-                    self.summarize_progress()
-                    self.reset_messages()
+                    # self.summarize_progress()
+                    # self.reset_messages()
                     continue
 
                 ## SCRAPE GESETZ
@@ -235,13 +237,13 @@ class LawAgent:
         if next_layer is None: return layers
         assert len(next_layer) > 0
 
-        # get 2 random choices if possible
-        if len(next_layer) < 2: rand = next_layer[1]
-        else:
-            random_choices = random.sample(next_layer, 2)
-            rand = f"{random_choices[0]}, {random_choices[1]}, ..."
+        # # get 2 random choices if possible
+        # if len(next_layer) < 2: rand = next_layer[1]
+        # else:
+        #     random_choices = random.sample(next_layer, 2)
+        #     rand = f"{random_choices[0]}, {random_choices[1]}, ..."
         
-        output_format = {"kategorie": f"gewaehlte Kategorie inklusive voranstehende Zahl, z.B. {rand}"}
+        output_format = {"kategorie": f"gewaehlte Kategorie inklusive voranstehende Zahl"}
         
         # Define human message
         current_human_message = HumanMessage(
@@ -279,8 +281,8 @@ class LawAgent:
     def choose_gesetz(self, layers):
         # Choose gesetz to look through
 
-        zusammenfassung = self.summary["zusammenfassung"]
-        context = f"Zu beantwortende Rechtsfrage: {self.rechtsfrage}\n\nZusammenfassung des bisherigen Fortschritts: {zusammenfassung}"
+        # zusammenfassung = self.summary["zusammenfassung"]
+        context = f"Zu beantwortende Rechtsfrage: {self.rechtsfrage}"  #\n\nZusammenfassung des bisherigen Fortschritts: {zusammenfassung}"
 
         gesetze = [
             g["gesetzesnummer"] + " - " + g["kurztitel"]
@@ -411,9 +413,14 @@ class LawAgent:
         self.add_message(human_message)
         
         # get chat completion
-        if model == "4k": response = self.chat(self.messages)
-        if model == "16k": response = self.chat_16k(self.messages)
-        
+        try:
+            if model == "4k": response = self.chat(self.messages)
+            if model == "16k": response = self.chat_16k(self.messages)
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt
+        except InvalidRequestError:
+            response = self.chat_16k(self.messages)
+
         # append response message to conversation history and agent memory
         self.add_message(response)
 
@@ -497,7 +504,6 @@ class LawAgent:
             prompt = f.read()
         assert prompt is not None
 
-
         # initialize variables for loop
         cleaned_section_names = []
         section_names = list(gesetz_structure.keys())
@@ -505,14 +511,15 @@ class LawAgent:
         # loop over all section names
         for i, section_name in enumerate(section_names):
 
-            llm_chain = LLMChain(prompt=prompt, llm=self.llm_curie)
-            chain_input = prompt.format(eingabe=section_name)
-            response = llm_chain.run(chain_input)
-
+            # format prompt and get response
+            formatted_prompt = prompt.format(eingabe=section_name)
+            response = self.llm_curie.generate([formatted_prompt]).generations[0][0].text
+            
             # clean response
             response = response.split("\n")[0]
             response = response.strip()
 
+            # append cleaned response to list
             cleaned_section_names.append(response)
 
         # Create new gesetz structure and return it
@@ -523,8 +530,15 @@ class LawAgent:
             
 
         return new_gesetz_structure
+    
 
 
+    def format_gesetz_structure(self):
+        pass
+
+
+    def format_gesetz_section_content(self):
+        pass
 
 
 

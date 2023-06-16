@@ -1,11 +1,14 @@
 Bitte konvertiere diesen Titel in eine einheitliche Struktur. Diese einheitliche Strukture sollte den Paragraphen als auch den Titel enthalten. 
 Sollten unvollständige Satzteile dabei sein, entferne diese. Sollten diese Titel doppelte Teile haben, entferne die doppelten Teile.
 
-Eingabe: §3-§3.Vertrauensgrundsatz
+Eingabe: §3.Vertrauensgrundsatz
 Ausgabe: §3 Vertrauensgrundsatz
 
 Eingabe: ArtikelIII-(Anm.:aus
 Ausgabe: Artikel III
+
+Eingabe: §31-IV.ABSCHNITT
+Ausgabe: §31 IV Abschnitt
 
 Eingabe: §8-§8.FahrordnungaufStraßenmitbesonderenAnlagen.
 Ausgabe: §8 Fahrordnung auf Straßen mit besonderen Anlagen
@@ -15,6 +18,9 @@ Ausgabe: §76d Schulstraße
 
 Eingabe: ArtikelIII-(Anm.:aus
 Ausgabe: Artikel III
+
+Eingabe: §0 Langtitel
+Ausgabe: §0 Titel
 
 Eingabe: {eingabe}
 Ausgabe:
