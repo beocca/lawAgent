@@ -66,7 +66,7 @@ class LawAgent:
 
         self.llm_curie = OpenAI(
             model="text-curie-001",
-            temperature=0.0,
+            temperature=0,
             max_tokens=1024
         )
 
@@ -98,7 +98,7 @@ class LawAgent:
         try:
             final_report = None
             for i in range(max_interations): 
-                       
+
                 ## CHOOSE GESETZ
                 # define layers, choose gesetz, erstelle zusammenfassung und reset messages
                 layers = self.define_layers()
@@ -160,6 +160,7 @@ class LawAgent:
             "rechtsfrage": self.rechtsfrage,
             "gesetze_durchsucht": self.gesetze_durchsucht,
             "summary": self.summary,
+            "last_analisys": analysis,
             "final_report": final_report,
             "conversation_history": [f"{m.type}: {m.content}" for m in self.conversation_history]
         }
@@ -387,7 +388,6 @@ class LawAgent:
             "zusammenfassung": "fasse noch einmal zusammen wie du beim beantworten der Frage vorgegangen bist",
             "komplexe antwort": "gib eine möglichst genaue und komplexe antwort und erklaerung; zusätzliche informationen sind gerne gesehen; gerichtet an einen juristischen Experten",
             "einfache antwort": "gib eine einfache antwort und erklaerung; vermeide informationen nach welchen nicht explizit gefragt wird; gerichtet an einen juristischen Laien",
-            "explizite antwort": "die anwort in einem satz",
             "begruendung": "begruende deine antwort",
             # "weiter lernen": "gib empfehlungen ab welche themen noch interessant sein koennten",
         }
