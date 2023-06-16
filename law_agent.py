@@ -83,7 +83,7 @@ class LawAgent:
 
 
 
-    def run(self, question):
+    def run(self, question, max_interations=5):
         # main function to answer a question
 
         ## INIT MAIN VARIABLES FOR AGENT
@@ -96,8 +96,8 @@ class LawAgent:
             raise NotImplementedError
         
         try:
-
-            while True:        
+            final_report = None
+            for i in range(max_interations):        
                 ## CHOOSE GESETZ
                 # define layers, choose gesetz, erstelle zusammenfassung und reset messages
                 layers = self.define_layers()
@@ -149,23 +149,10 @@ class LawAgent:
                     continue
 
                 else:
-                    # create final report
+                    # create summary and final report
+                    self.summarize_progress()
                     final_report = self.create_final_report()
 
-                    # save whole conversation
-                    save_dict = {
-                        "rechtsfrage": self.rechtsfrage,
-                        "gesetze_durchsucht": self.gesetze_durchsucht,
-                        "summary": self.summary,
-                        "final_report": final_report,
-                        "conversation_history": [f"{m.type}: {m.content}" for m in self.conversation_history]
-                    }
-
-                    # save conversation history
-                    frage_str = self.rechtsfrage.replace(" ", "_").replace("?", "").replace("!", "").replace(".", "").strip()
-                    with open(os.path.join("answered", f"conversation_history_{frage_str}.json"), "w") as f:
-                        json.dump(save_dict, f, indent=4, ensure_ascii=False)
-                    
                     # reset messages and break loop
                     self.reset_messages()
                     break
@@ -175,14 +162,26 @@ class LawAgent:
             # TODO: save whole conversation status
             pass
         
-        finally:
-            # reset all variables
-            self.rechtsfrage = None
-            self.messages = list()
-            self.conversation_history = list()
-            self.gesetze_durchsucht = list()
-            self.summary = dict()
+        
+        # save whole conversation
+        save_dict = {
+            "rechtsfrage": self.rechtsfrage,
+            "gesetze_durchsucht": self.gesetze_durchsucht,
+            "summary": self.summary,
+            "final_report": final_report,
+            "conversation_history": [f"{m.type}: {m.content}" for m in self.conversation_history]
+        }
+        # save conversation history
+        frage_str = self.rechtsfrage.replace(" ", "_").replace("?", "").replace("!", "").replace(".", "").strip()
+        with open(os.path.join("answered", f"conversation_history_{frage_str}.json"), "w") as f:
+            json.dump(save_dict, f, indent=4, ensure_ascii=False)
 
+        # reset all variables after run
+        self.rechtsfrage = None
+        self.messages = list()
+        self.conversation_history = list()
+        self.gesetze_durchsucht = list()
+        self.summary = dict()
 
 
 
@@ -303,6 +302,7 @@ class LawAgent:
             content=self.prompts["gesetz_waehlen"].format(
                 context=context,
                 laws="\n".join(gesetze),
+                gesetze_durchsucht="\n".join(self.gesetze_durchsucht),
                 output_format=str(output_format).replace("'", '"')
             )
         )

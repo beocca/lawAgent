@@ -3,6 +3,9 @@
 Aufgabe: Wähle das Gesetz, welches dir bei der Beantwortung deiner Frage hilfreich sein wird (nr - kurztitel):
 {laws}
 
+Gesetze die du dir schon angeschaut hast:
+{gesetze_durchsucht}
+
 Benötigtes Ausgabeformat (JSON):
 {output_format}
 
