@@ -1,7 +1,7 @@
 import os
 import json
 import string
-import random
+import time
 
 import requests
 from bs4 import BeautifulSoup
@@ -96,8 +96,8 @@ class LawAgent:
             raise NotImplementedError
         
         try:
-            while True:
-                    
+
+            while True:        
                 ## CHOOSE GESETZ
                 # define layers, choose gesetz, erstelle zusammenfassung und reset messages
                 layers = self.define_layers()
@@ -174,6 +174,15 @@ class LawAgent:
             # TODO: stop and summarize conversation
             # TODO: save whole conversation status
             pass
+        
+        finally:
+            # reset all variables
+            self.rechtsfrage = None
+            self.messages = list()
+            self.conversation_history = list()
+            self.gesetze_durchsucht = list()
+            self.summary = dict()
+
 
 
 
@@ -383,9 +392,10 @@ class LawAgent:
     
     def create_final_report(self):
         output_format = {
-            "zusammenfassung": "fasse nocheinmal zusammen wie du beim beantworten der Frage vorgegangen bist",
-            "komplexe antwort": "gib eine möglichst genaue und komplexe antwort und erklaerung; gerichtet an einen juristischen Experten",
-            "einfache antwort": "gib eine einfache antwort und erklaerung; gerichtet an einen juristischen Laien",
+            "zusammenfassung": "fasse noch einmal zusammen wie du beim beantworten der Frage vorgegangen bist",
+            "komplexe antwort": "gib eine möglichst genaue und komplexe antwort und erklaerung; zusätzliche informationen sind gerne gesehen; gerichtet an einen juristischen Experten",
+            "einfache antwort": "gib eine einfache antwort und erklaerung; vermeide informationen nach welchen nicht explizit gefragt wird; gerichtet an einen juristischen Laien",
+            "explizite antwort": "die anwort in einem satz",
             "begruendung": "begruende deine antwort",
             # "weiter lernen": "gib empfehlungen ab welche themen noch interessant sein koennten",
         }
@@ -425,6 +435,7 @@ class LawAgent:
         self.add_message(response)
 
         # do checks and return 
+        time.sleep(1)
         assert isinstance(response, AIMessage)
         return json.loads(response.content)
         # TODO: handle this better! -> i.e. return a message that the agent did not understand the human message
@@ -485,7 +496,7 @@ class LawAgent:
             gesetz_structure = self.structure_gesetz_helper(gesetz_structure)
 
             # save as json
-            with open(gesetz_structure_path, "w") as f:    
+            with open(gesetz_structure_path, "w") as f:
                 json.dump(gesetz_structure, f, indent=4, ensure_ascii=False)
 
         else:
@@ -539,54 +550,6 @@ class LawAgent:
 
     def format_gesetz_section_content(self):
         pass
-
-
-
-
-
-
-    def structure_gesetz_helper_old(self, gesetz_structure):
-        # Set up messages for structure cleaner chain
-        output_format = ["neuer titel (schoen formatierter)"]
-        messages = [
-            SystemMessage(
-                content="Bitte konvertiere diese Liste in Namen mit einheitlicher Struktur. " \
-                        "Diese einheitliche Strukture sollte den Paragraphen als auch den Titel enthalten. "\
-                        "Sollten unvollständige Satzteile dabei sein, entferne diese." \
-                        "Sollten diese Titel doppelte Teile haben, entferne die doppelten Teile.\n" \
-                        "Gib deine Antworten ausschließlich in form von JSON in folgendem Format aus:\n"
-                f"{output_format}"
-            ),
-            HumanMessage(
-                content=str(list(gesetz_structure.keys()))
-            )
-        ]
-
-        cleaned_section_names = []
-        section_names = list(gesetz_structure.keys())
-
-        # Process sections in batches of 10
-        for i in range(0, len(section_names), 50):
-        # for i in range(0, 10, 10):
-            batch = section_names[i:i+50]
-            messages[-1] = HumanMessage(content=str(batch))
-
-            # Let agent clean the structure for the current batch
-            response = self.chat(messages)
-            response = response.content.replace("'", '"')
-            cleaned_batch = json.loads(response)
-
-            for row in cleaned_batch: cleaned_section_names.append(row)
-
-        # Create new gesetz structure and return it
-        new_gesetz_structure = {}
-        assert len(cleaned_section_names) == len(gesetz_structure.keys())
-        for old, new in zip(gesetz_structure.keys(), cleaned_section_names):
-            new_gesetz_structure[new] = gesetz_structure[old.replace(" ", "")]
-            
-
-        return new_gesetz_structure
-    
 
 
 

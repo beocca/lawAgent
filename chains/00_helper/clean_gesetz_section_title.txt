@@ -19,8 +19,8 @@ Ausgabe: §76d Schulstraße
 Eingabe: ArtikelIII-(Anm.:aus
 Ausgabe: Artikel III
 
-Eingabe: §0 Langtitel
-Ausgabe: §0 Titel
+Eingabe: §0-Langtitel
+Ausgabe: §0 Langtitel
 
 Eingabe: {eingabe}
 Ausgabe:
