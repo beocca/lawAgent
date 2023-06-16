@@ -97,23 +97,15 @@ class LawAgent:
         
         try:
             final_report = None
-            for i in range(max_interations):        
+            for i in range(max_interations): 
+                       
                 ## CHOOSE GESETZ
                 # define layers, choose gesetz, erstelle zusammenfassung und reset messages
                 layers = self.define_layers()
                 gesetz = self.choose_gesetz(layers)
                 self.summarize_progress()
                 self.reset_messages(out=True)
-
-                # choose gesetz, erstelle zusammenfassung und reset messages
-                # self.summarize_progress()
-                # self.reset_messages(out=True)
-
-                if gesetz.lower() == "nichts gefunden":
-                    # create summary and start over
-                    # self.summarize_progress()
-                    # self.reset_messages()
-                    continue
+                if gesetz.lower() == "nichts gefunden": continue
 
                 ## SCRAPE GESETZ
                 assert len(gesetz.split(" - ")) == 2
@@ -162,7 +154,7 @@ class LawAgent:
             # TODO: save whole conversation status
             pass
         
-        
+
         # save whole conversation
         save_dict = {
             "rechtsfrage": self.rechtsfrage,
