@@ -136,7 +136,7 @@ class LawAgent:
 
                 ## DECISION
                 naechster_schritt = analysis["naechster_schritt"]
-                if naechster_schritt.lower() == "neues_gesetz":
+                if naechster_schritt.lower() != "done":
                     # create summary and start over
                     self.summarize_progress()
                     self.reset_messages()
@@ -150,6 +150,8 @@ class LawAgent:
                     # reset messages and break loop
                     self.reset_messages()
                     break
+
+
 
         except KeyboardInterrupt:
             # TODO: stop and summarize conversation
@@ -239,7 +241,8 @@ class LawAgent:
     def define_layer(self, layers, context):
 
         next_layer = self.lookup_bundesrecht(layers)
-        if next_layer is None: return layers
+        if next_layer is None: return layers + [None]
+        elif len(next_layer) == 0: return layers + [None]
         assert len(next_layer) > 0
 
         # get 2 random choices if possible
@@ -270,7 +273,7 @@ class LawAgent:
     def summarize_progress(self):
         output_format = {
             "zusammenfassung": "eine kurze, aber detailierte zusammenfassung ueber deinen bisherigen Fortschritt",
-            "frage beantwortet": "hast du die frage schon beantwortet? waehle aus folgender liste: 'ja' | 'noch nicht' ",
+            "frage_beantwortet": "hast du die frage schon beantwortet? waehle aus folgender liste: 'ja' | 'noch nicht' ",
             "begruendung": "begruende deine Entscheidung",
         }
         current_human_message = HumanMessage(
@@ -294,7 +297,7 @@ class LawAgent:
             for g in self.bundesrecht_gesetze_for_category(layers)
             if len(str(g["gesetzesnummer"]).strip()) > 0
         ]
-        output_format = {"nummer": "die davorstehende nummer des gesetzes", "titel": "der titel des gewählten gesetzes 'nichts gefunden'"}
+        output_format = {"nummer": "die davorstehende nummer des gesetzes oder 'nichts gefunden'", "titel": "der titel des gewählten gesetzes oder 'nichts gefunden'"}
         current_human_message = HumanMessage(
             content=self.prompts["gesetz_waehlen"].format(
                 context=context,
@@ -304,8 +307,11 @@ class LawAgent:
             )
         )
         response = self.get_chat_completion(current_human_message)
-        gesetz = response["nummer"] + " - " + response["titel"]
-        return gesetz
+        if "nichts gefunden" in response["titel"].lower():
+            return "nichts gefunden"
+        else:
+            gesetz = response["nummer"] + " - " + response["titel"]
+            return gesetz
 
 
 
@@ -345,7 +351,7 @@ class LawAgent:
             "vermutung": "stelle eine Vermutungen an ob dieses Gesetz ausreichend ist um die Frage zu beantworten? waehle aus folgender liste: 'ja' | 'nein'",
             "begruendung": "eine kurze begruendung warum",
             "loesungsansatz": "wie koennte die frage beantwortet werden?",
-            "naechster schritt": "was sollte als naechstes getan werden? waehle aus folgender liste: 'neues_gesetz' | 'done' "
+            "naechster_schritt": "was sollte als naechstes getan werden? waehle aus folgender liste: 'neues gesetz waehlen' | 'done' "
         }
         show_chosen_section_message = HumanMessage(
             content=self.prompts["gesetzestext_gesamt"].format(
@@ -371,7 +377,7 @@ class LawAgent:
             "begruendung": "eine kurze begruendung warum",
             "analysierte_sektion": "der name oder id der sektion die analysiert wurde",
             "loesungsansatz": "wie koennte die frage beantwortet werden?",
-            "naechster schritt": "was sollte als naechstes getan werden? waehle aus folgender liste: 'neues_gesetz' | 'done' "
+            "naechster_schritt": "was sollte als naechstes getan werden? waehle aus folgender liste: 'neues gesetz waehlen' | 'done' "
         }
         show_chosen_section_message = HumanMessage(
             content=self.prompts["gesetzestext_teil_zeigen"].format(
@@ -390,8 +396,8 @@ class LawAgent:
     def create_final_report(self):
         output_format = {
             "zusammenfassung": "fasse noch einmal zusammen wie du beim beantworten der Frage vorgegangen bist",
-            "komplexe antwort": "gib eine möglichst genaue und komplexe antwort und erklaerung; zusätzliche informationen sind gerne gesehen; gerichtet an einen juristischen Experten",
-            "einfache antwort": "gib eine einfache antwort und erklaerung; vermeide informationen nach welchen nicht explizit gefragt wird; gerichtet an einen juristischen Laien",
+            "komplexe_antwort": "gib eine möglichst genaue und komplexe antwort und erklaerung; zusätzliche informationen sind gerne gesehen; gerichtet an einen juristischen Experten",
+            "einfache_antwort": "gib eine einfache und kurze antwort; vermeide informationen nach welchen nicht explizit gefragt wird, sowie Fachjargon; gerichtet an einen juristischen Laien",
             "begruendung": "begruende deine antwort",
             # "weiter lernen": "gib empfehlungen ab welche themen noch interessant sein koennten",
         }
@@ -412,7 +418,7 @@ class LawAgent:
 
         # clean human message
         human_message = HumanMessage(
-            content=self.clean_text(human_message.content) + "\n\n"
+            content=self.clean_text(human_message.content)  + f"\n\nDeine JSON-Antwort:"
         )
 
         # append human message to conversation history and agent memory
