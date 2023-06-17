@@ -1,14 +1,14 @@
 import os
+import time
 import json
 import string
-import time
+import random
 
 import requests
 from bs4 import BeautifulSoup
 
 from openai.error import InvalidRequestError
 
-from langchain import LLMChain
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import (
@@ -81,8 +81,6 @@ class LawAgent:
         return prompt
     
 
-
-
     def run(self, question, max_interations=5):
         # main function to answer a question
 
@@ -90,6 +88,10 @@ class LawAgent:
         if isinstance(question, str):
             self.rechtsfrage = question
             self.add_message(SystemMessage(content=self.prompts["system"]))
+
+            # TODO: Question interpretation and refinement -> alignment between agent and user on interpretation of question
+
+
         
         elif isinstance(question, dict):
             # TODO: init variables from previous conversation state
@@ -133,8 +135,8 @@ class LawAgent:
 
 
                 ## DECISION
-                vermutung = analysis["vermutung"]
-                if vermutung.lower() == "noch nicht":
+                naechster_schritt = analysis["naechster_schritt"]
+                if naechster_schritt.lower() == "neues_gesetz":
                     # create summary and start over
                     self.summarize_progress()
                     self.reset_messages()
@@ -175,6 +177,8 @@ class LawAgent:
         self.conversation_history = list()
         self.gesetze_durchsucht = list()
         self.summary = dict()
+
+        return final_report
 
 
 
@@ -238,13 +242,13 @@ class LawAgent:
         if next_layer is None: return layers
         assert len(next_layer) > 0
 
-        # # get 2 random choices if possible
-        # if len(next_layer) < 2: rand = next_layer[1]
-        # else:
-        #     random_choices = random.sample(next_layer, 2)
-        #     rand = f"{random_choices[0]}, {random_choices[1]}, ..."
+        # get 2 random choices if possible
+        if len(next_layer) < 2: rand = next_layer[1]
+        else:
+            random_choices = random.sample(next_layer, 2)
+            rand = f"{random_choices[0]}, {random_choices[1]}, ..."
         
-        output_format = {"kategorie": f"gewaehlte Kategorie inklusive voranstehende Zahl"}
+        output_format = {"kategorie": f"gewaehlte Kategorie inklusive voranstehende Zahl. z.B. {rand}"}
         
         # Define human message
         current_human_message = HumanMessage(
@@ -551,8 +555,17 @@ class LawAgent:
 if __name__ == "__main__":
     
     la = LawAgent()
-    la.run("Wie schnell darf ich auf der Autobahn fahren?")
-    la.run("Wie lange darf ein sich ein 15 jähriger in der Nacht auf der Straße aufhalten?")
+    fragen = [
+        "Welche Behörde ist in Österreich für die Registrierung von Unternehmen zuständig und welche Schritte sind erforderlich, um ein Unternehmen rechtlich anzumelden?",
+        "Was sind die rechtlichen Bestimmungen für die Kündigung eines Arbeitsvertrags in Österreich und welche Rechte haben Arbeitnehmer und Arbeitgeber in diesem Zusammenhang?",
+        "Welche gesetzlichen Regelungen gelten in Österreich für den Schutz des geistigen Eigentums, insbesondere für Markenrechte und Urheberrechte?",
+        "Welche Voraussetzungen müssen erfüllt sein, damit eine Person in Österreich die Staatsbürgerschaft erlangen kann? Welche Rechte und Pflichten sind damit verbunden?",
+        "Welche steuerrechtlichen Regelungen gelten in Österreich für die Besteuerung von Einkommen aus dem Verkauf von Immobilien und wie hoch ist der Steuersatz?"
+        "Wie lange darf ein sich ein 15 jähriger in der Nacht draußen aufhalten?",
+        "Wie schnell darf ich auf der Autobahn mit einem Fahrrad fahren?",
+    ]
+    for frage in fragen:
+        la.run(frage)
 
 
     print("...done")
