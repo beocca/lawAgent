@@ -121,7 +121,9 @@ def fill_recursive(index, counter=0, depth=0, force_update=False):
                             gesetz_info[title] = content
                             
                     counter += 1
-                    print("  "*(depth+1), f" [{counter}] Gesetz info filled for: {doc_nr} \t in {time.time()-s:.4f}s")
+
+                    kurztitel = gesetz_info["kurztitel"]
+                    print("  "*(depth+1), f" [{counter}] - {time.time()-s:.4f}s - Filled Gesetz: {kurztitel}")
 
                     value.append(gesetz_info)
                 
@@ -145,5 +147,5 @@ print(f"Filled {counter} Gesetze.")
 
 # save bundesrecht index
 with open(os.path.join("ris", "bundesrecht_index_filled.json"), "w") as f:
-    json.dump(bundesrecht_index, f, indent=4)
+    json.dump(bundesrecht_index, f, indent=4, ensure_ascii=False)
 

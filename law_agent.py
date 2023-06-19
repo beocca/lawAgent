@@ -1,7 +1,6 @@
 import os
 import time
 import json
-import string
 import random
 
 import requests
@@ -18,6 +17,7 @@ from langchain.schema import (
 )
 
 from config import *
+from utils import formatting
 
 
 
@@ -43,24 +43,27 @@ class LawAgent:
 
         # Load Prompts
         self.prompts = {
-            "system":                       self.init_prompt("01_system.txt"),
-            "kategorie_waehlen":            self.init_prompt("02_kategorie_waehlen.txt"),
-            "gesetz_waehlen":               self.init_prompt("03_gesetz_waehlen.txt"),
-            "zusammenfassung_erstellen":    self.init_prompt("04_zusammenfassung_erstellen.txt"),
-            "gesetzestext_teil_waehlen":    self.init_prompt("05_gesetzestext_teil_waehlen.txt"),
-            "gesetzestext_teil_zeigen":     self.init_prompt("06_gesetzestext_teil_zeigen.txt"),
-            "gesetzestext_gesamt":          self.init_prompt("07_gesetzestext_gesamt.txt"),
-            "finaler_report":               self.init_prompt("08_finalen_report_erstellen.txt"),
+            "system":                       self.init_prompt("01_get_gesetze", "01_system.txt"),
+            "kategorie_waehlen":            self.init_prompt("01_get_gesetze", "02_kategorie_waehlen.txt"),
+            "gesetz_waehlen":               self.init_prompt("01_get_gesetze", "03_gesetz_waehlen.txt"),
+            "zusammenfassung_erstellen":    self.init_prompt("01_get_gesetze", "04_zusammenfassung_erstellen.txt"),
+            "gesetzestext_teil_waehlen":    self.init_prompt("01_get_gesetze", "05_gesetzestext_teil_waehlen.txt"),
+            "gesetzestext_teil_zeigen":     self.init_prompt("01_get_gesetze", "06_gesetzestext_teil_zeigen.txt"),
+            "gesetzestext_gesamt":          self.init_prompt("01_get_gesetze", "07_gesetzestext_gesamt.txt"),
+            "finaler_report":               self.init_prompt("01_get_gesetze", "08_finalen_report_erstellen.txt"),
+
+            "extrahiere_fachbegriffe":      self.init_prompt("02_erklaere_final_report", "01_analysiere_finalen_report.txt"),
+            "fragen_generieren":            self.init_prompt("02_erklaere_final_report", "02_generiere_frage_fuer_fachbegriff.txt"),
         }
 
         self.chat = ChatOpenAI(
             model="gpt-3.5-turbo",
-            temperature=0,
+            temperature=0.5,
             max_tokens=2048
         )
         self.chat_16k = ChatOpenAI(
             model="gpt-3.5-turbo-16k",
-            temperature=0,
+            temperature=0.5,
             max_tokens=4096
         )
 
@@ -76,8 +79,8 @@ class LawAgent:
         self.conversation_history = list()
 
 
-    def init_prompt(self, prompt_name):
-        with open(os.path.join(CHAIN_DIR, "01_get_gesetze", prompt_name), "r") as f: prompt = f.read()
+    def init_prompt(self, dir, prompt_name):
+        with open(os.path.join(CHAIN_DIR, dir, prompt_name), "r") as f: prompt = f.read()
         return prompt
     
 
@@ -98,8 +101,11 @@ class LawAgent:
             raise NotImplementedError
         
         try:
+            analysis = None
             final_report = None
-            for i in range(max_interations): 
+            fachbegriffe = None
+            explained_fachbegriffe = dict()
+            for i in range(max_interations):
 
                 ## CHOOSE GESETZ
                 # define layers, choose gesetz, erstelle zusammenfassung und reset messages
@@ -107,11 +113,10 @@ class LawAgent:
                 gesetz = self.choose_gesetz(layers)
                 self.summarize_progress()
                 self.reset_messages(out=True)
-                if gesetz.lower() == "nichts gefunden": continue
+                if "nichts gefunden" in gesetz.lower(): continue
 
                 ## SCRAPE GESETZ
-                assert len(gesetz.split(" - ")) == 2
-                gesetz_id, gesetz_name = gesetz.split(" - ")
+                gesetz_id = gesetz.split(" - ")[0]
                 gesetz_structure = self.get_gesetz_structure(gesetz_id)
                 gesetz_is_long = sum([
                     len(k) + len("".join(v)) for k, v in gesetz_structure.items()]
@@ -147,8 +152,33 @@ class LawAgent:
                     self.summarize_progress()
                     final_report = self.create_final_report()
 
-                    # reset messages and break loop
+                    # reset messages
                     self.reset_messages()
+
+                    ## ERKLAERE FACHBEGRIFFE
+                    # extract fachbegriffe
+                    fachbegriffe = self.extract_fachbegriffe(final_report)
+
+                    # explain fachbegriffe
+                    if len(fachbegriffe) > 0:
+                        fragen_for_fachbegriffe = self.generate_questions_for_fachbegriffe()
+                        assert isinstance(fragen_for_fachbegriffe, dict)
+
+                        for fachbegriff in fragen_for_fachbegriffe.keys():
+                            
+                            # Create new law agent to answer question
+                            la = LawAgent()
+                            answer = la.run(fragen_for_fachbegriffe[fachbegriff]["frage"])
+
+                            # Add answer to explained_fachbegriffe
+                            explained_fachbegriffe[fachbegriff] = {
+                                "frage": fragen_for_fachbegriffe[fachbegriff]["frage"],
+                                "antwort": answer
+                            }
+
+                            # TODO: update final report with answer
+                            # TODO: update gesetze_durchsucht with answer 
+
                     break
 
 
@@ -159,13 +189,17 @@ class LawAgent:
             pass
         
 
+
+        # TODO: handle if final_report is None
+
         # save whole conversation
         save_dict = {
             "rechtsfrage": self.rechtsfrage,
             "gesetze_durchsucht": self.gesetze_durchsucht,
             "summary": self.summary,
-            "last_analisys": analysis,
+            "last_analysis": analysis,
             "final_report": final_report,
+            "fachbegriffe": explained_fachbegriffe if len(explained_fachbegriffe.keys()) == 0 else fachbegriffe,
             "conversation_history": [f"{m.type}: {m.content}" for m in self.conversation_history]
         }
         # save conversation history
@@ -180,9 +214,64 @@ class LawAgent:
         self.gesetze_durchsucht = list()
         self.summary = dict()
 
-        return final_report
+        return save_dict
 
 
+    def extract_fachbegriffe(self, finaler_report):
+
+        # only keep the einfache_antwort
+        assert "einfache_antwort" in finaler_report.keys()
+        finaler_report = {"antwort": finaler_report["einfache_antwort"]}
+
+        output_format = {
+            "extrahierte_fachbegriffe": ["fachbegriff_1", "..."]
+        }
+        none_found_format = {
+            "extrahierte_fachbegriffe": []
+        }
+        current_human_message = HumanMessage(
+            content=self.prompts["extrahiere_fachbegriffe"].format(
+                rechtsfrage=self.rechtsfrage,
+                finaler_report=formatting.dict_to_string(finaler_report),
+                output_format=
+                    f"{formatting.dict_to_string(output_format)}\n"
+                     "XOR wenn keine Fachbegriffe in der Antwort enhalten sind:\n"
+                    f"{formatting.dict_to_string(none_found_format)}"
+            )
+        )
+
+        fachbegriffe = self.get_chat_completion(current_human_message)
+        assert "extrahierte_fachbegriffe" in fachbegriffe.keys()
+        assert isinstance(fachbegriffe["extrahierte_fachbegriffe"], list)
+        return fachbegriffe["extrahierte_fachbegriffe"]
+
+
+    def generate_questions_for_fachbegriffe(self):
+        
+        output_format = {
+            "fragen": [
+                {
+                    "fachbegriff": "fachbegriff_1",
+                    "frage": "eine rechtsfrage die du dir selbst stellen würdest um diesen fachbegriff zu erklaeren"
+                }
+            ]
+        }
+        
+        current_human_message = HumanMessage(
+            content=self.prompts["fragen_generieren"].format(
+                output_format=formatting.dict_to_string(output_format)
+            )
+        )
+
+        questions = self.get_chat_completion(current_human_message)
+        assert "fragen" in questions.keys()
+        assert isinstance(questions["fragen"], list)
+        return {
+            e["fachbegriff"]: {
+                "frage": e["frage"]
+            }
+            for e in questions["fragen"]
+        }
 
 
     def lookup_bundesrecht(self, layers):
@@ -190,10 +279,10 @@ class LawAgent:
             return self.bundesrecht_index.keys()
         elif len(layers) == 1:
             l1 = layers[0]
-            return self.bundesrecht_index[l1].keys()
+            return [ k for k in self.bundesrecht_index[l1].keys() if not k.endswith(" FREI") ]
         elif len(layers) == 2:
             l1, l2 = layers
-            try: return self.bundesrecht_index[l1][l2].keys()
+            try: return [ k for k in self.bundesrecht_index[l1][l2].keys() if not k.endswith(" FREI") ]
             except KeyboardInterrupt: raise KeyboardInterrupt
             except: return None
         else:
@@ -258,7 +347,7 @@ class LawAgent:
             content=self.prompts["kategorie_waehlen"].format(
                 context=context,
                 categories="\n".join(next_layer),
-                output_format=self.clean_output_format(output_format)
+                output_format=formatting.dict_to_string(output_format)
             )
         )
         response = self.get_chat_completion(current_human_message)
@@ -278,7 +367,7 @@ class LawAgent:
         }
         current_human_message = HumanMessage(
             content=self.prompts["zusammenfassung_erstellen"].format(
-                output_format=str(output_format).replace("'", '"'),
+                output_format=formatting.dict_to_string(output_format)
             )
         )
 
@@ -293,7 +382,7 @@ class LawAgent:
         context = f"Zu beantwortende Rechtsfrage: {self.rechtsfrage}"  #\n\nZusammenfassung des bisherigen Fortschritts: {zusammenfassung}"
 
         gesetze = [
-            g["gesetzesnummer"] + " - " + g["kurztitel"]
+            g["gesetzesnummer"] + " - " + g["kurztitel"].replace(" - ", "; ")
             for g in self.bundesrecht_gesetze_for_category(layers)
             if len(str(g["gesetzesnummer"]).strip()) > 0
         ]
@@ -303,11 +392,11 @@ class LawAgent:
                 context=context,
                 laws="\n".join(gesetze),
                 gesetze_durchsucht="\n".join(self.gesetze_durchsucht),
-                output_format=str(output_format).replace("'", '"')
+                output_format=formatting.dict_to_string(output_format)
             )
         )
         response = self.get_chat_completion(current_human_message)
-        if "nichts gefunden" in response["titel"].lower():
+        if "nichts gefunden" in response["nummer"].lower() or "nichts gefunden" in response["titel"].lower():
             return "nichts gefunden"
         else:
             gesetz = response["nummer"] + " - " + response["titel"]
@@ -326,7 +415,7 @@ class LawAgent:
                 context=context,
                 gesetz=gesetz,
                 struktur="\n".join([s for s in gesetz_structure.keys() if s.strip().startswith("§")]),
-                output_format=str(output_format).replace("'", '"')
+                output_format=formatting.dict_to_string(output_format)
             ) + "\n\nAchte darauf, dass du immer die gesamte Zeile zitierst und nicht nur die Nummer der Sektion!"
         )
         response = self.get_chat_completion(choose_section_message, model="16k")
@@ -357,7 +446,7 @@ class LawAgent:
             content=self.prompts["gesetzestext_gesamt"].format(
                 gesetz=gesetz,
                 geltende_fassung=geltende_fassung,
-                output_format=str(output_format).replace("'", '"')
+                output_format=formatting.dict_to_string(output_format)
             )
         )
 
@@ -383,7 +472,7 @@ class LawAgent:
             content=self.prompts["gesetzestext_teil_zeigen"].format(
                 gesetz=gesetz,
                 geltende_fassung=geltende_fassung,
-                output_format=str(output_format).replace("'", '"')
+                output_format=formatting.dict_to_string(output_format)
             )
         )
 
@@ -399,12 +488,11 @@ class LawAgent:
             "komplexe_antwort": "gib eine möglichst genaue und komplexe antwort und erklaerung; zusätzliche informationen sind gerne gesehen; gerichtet an einen juristischen Experten",
             "einfache_antwort": "gib eine einfache und kurze antwort; vermeide informationen nach welchen nicht explizit gefragt wird, sowie Fachjargon; gerichtet an einen juristischen Laien",
             "begruendung": "begruende deine antwort",
-            # "weiter lernen": "gib empfehlungen ab welche themen noch interessant sein koennten",
         }
 
         current_human_message = HumanMessage(
             content=self.prompts["finaler_report"].format(
-                output_format=str(output_format).replace("'", '"'),
+                output_format=formatting.dict_to_string(output_format)
             )
         )
 
@@ -418,7 +506,7 @@ class LawAgent:
 
         # clean human message
         human_message = HumanMessage(
-            content=self.clean_text(human_message.content)  + f"\n\nDeine JSON-Antwort:"
+            content=formatting.clean_text_for_prompt(human_message.content)  + f"\n\nDeine JSON-Antwort:"
         )
 
         # append human message to conversation history and agent memory
@@ -461,15 +549,6 @@ class LawAgent:
         self.conversation_history.append(message)
     
 
-    def clean_output_format(self, d):
-        return str(d).replace("'", '"')
-    
-    def clean_text(self, text):
-        printable = set(string.printable + "§ßäöüÄÖÜ")
-        cleaned_text = ''.join(filter(lambda x: x in printable, text))
-        return cleaned_text
-    
-
     def get_gesetz_structure(self, gesetz_id):
 
         # Get Geltende Fassung von Gesetz
@@ -487,11 +566,11 @@ class LawAgent:
                 text_nodes = [tn.strip() for tn in text_nodes if len(tn.strip()) > 0]
                 text_nodes = [tn for tn in text_nodes if tn.lower() != "text"]
                 text_nodes = [tn for tn in text_nodes if not tn.startswith("Art. ")]
-                text_nodes = [self.clean_text(tn) for tn in text_nodes]
+                text_nodes = [formatting.clean_text_for_prompt(tn) for tn in text_nodes]
                 section_name, section_content = " - ".join(text_nodes[:2]), text_nodes[2:]
                 section_content = [c for c in section_content if not c.startswith("§")]
                 section_content = [c for c in section_content if not c.startswith("Paragraph ")]
-                section_content = [self.clean_text(c) for c in section_content]
+                section_content = [formatting.clean_text_for_prompt(c) for c in section_content]
                 gesetz_structure[section_name.replace(" ", "")] = text_nodes[2:]
             
             # create cleaner gesetz structure
@@ -558,14 +637,16 @@ class LawAgent:
 
 
 
+
+
 if __name__ == "__main__":
     
     la = LawAgent()
     fragen = [
+        "Welche Voraussetzungen müssen erfüllt sein, damit eine Person in Österreich die Staatsbürgerschaft erlangen kann?",
         "Welche Behörde ist in Österreich für die Registrierung von Unternehmen zuständig und welche Schritte sind erforderlich, um ein Unternehmen rechtlich anzumelden?",
         "Was sind die rechtlichen Bestimmungen für die Kündigung eines Arbeitsvertrags in Österreich und welche Rechte haben Arbeitnehmer und Arbeitgeber in diesem Zusammenhang?",
         "Welche gesetzlichen Regelungen gelten in Österreich für den Schutz des geistigen Eigentums, insbesondere für Markenrechte und Urheberrechte?",
-        "Welche Voraussetzungen müssen erfüllt sein, damit eine Person in Österreich die Staatsbürgerschaft erlangen kann? Welche Rechte und Pflichten sind damit verbunden?",
         "Welche steuerrechtlichen Regelungen gelten in Österreich für die Besteuerung von Einkommen aus dem Verkauf von Immobilien und wie hoch ist der Steuersatz?"
         "Wie lange darf ein sich ein 15 jähriger in der Nacht draußen aufhalten?",
         "Wie schnell darf ich auf der Autobahn mit einem Fahrrad fahren?",

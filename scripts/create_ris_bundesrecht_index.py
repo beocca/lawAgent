@@ -477,6 +477,12 @@ for row in index.strip().split("\n"):
 with open("ris/bundesrecht_index.json", "w") as f:
     json.dump(laws, f, indent=4)
 
+# load and saqve again to convert all {}, for [],
+with open("ris/bundesrecht_index.json", "r") as f:
+    laws = f.read()
+laws = laws.replace("{}", "[]")
+with open("ris/bundesrecht_index.json", "w") as f:
+    json.dump(laws, f, indent=4)
 
 
 

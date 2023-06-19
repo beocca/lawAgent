@@ -1,0 +1,9 @@
+Sehr gut!
+
+Aufgabe: Generiere nun für all diese Fachbegriffe Fragen. Diese Fragen sollten so formuliert sein, wie du sie dir selbst stellen würdest. Außerdem solltest du den nötigen Kontext in der Frage erwähnen warum du diese Frage stellst.
+
+Benötigtes Ausgabeformat (JSON):
+{output_format}
+
+Halte dich strikt an das benötigte Ausgabeformat!
+Löse ausschließlich die gestellte Aufgabe!

@@ -1,0 +1,13 @@
+Beantwortete Rechtsfrage:
+{rechtsfrage}
+
+Finaler Report:
+{finaler_report}
+
+Aufgabe: Analysiere die Antworten des finalen Reports und extrahiere die Fachbegriffe, die für einen Laien unverständlich sein könnten oder generell Notwendig sind um die Frage vollständig zu beantworten. 
+
+Benötigtes Ausgabeformat (JSON):
+{output_format}
+
+Halte dich strikt an das benötigte Ausgabeformat!
+Löse ausschließlich die gestellte Aufgabe!
