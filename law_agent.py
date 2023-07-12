@@ -557,22 +557,95 @@ class LawAgent:
             url = f"https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer={gesetz_id}"
             html = requests.get(url).text
             soup = BeautifulSoup(html, "html.parser")
+            
             pagebase = soup.find("div", {"id": "pagebase"})
             content = pagebase.find("div", {"id": "content"})
             document_contents = content.find_all("div", {"class": "documentContent"})
-            gesetz_structure = {}
-            for doc_content in document_contents:
-                text_nodes = doc_content.find_all(string=True)
-                text_nodes = [tn.strip() for tn in text_nodes if len(tn.strip()) > 0]
-                text_nodes = [tn for tn in text_nodes if tn.lower() != "text"]
-                text_nodes = [tn for tn in text_nodes if not tn.startswith("Art. ")]
-                text_nodes = [formatting.clean_text_for_prompt(tn) for tn in text_nodes]
-                section_name, section_content = " - ".join(text_nodes[:2]), text_nodes[2:]
-                section_content = [c for c in section_content if not c.startswith("§")]
-                section_content = [c for c in section_content if not c.startswith("Paragraph ")]
-                section_content = [formatting.clean_text_for_prompt(c) for c in section_content]
-                gesetz_structure[section_name.replace(" ", "")] = text_nodes[2:]
             
+            gesetz_structure = {}
+            curr_uberschr_g1 = None
+            curr_ueberschr_para = None
+            curr_para_mit_abs = None
+            curr_wai_absatz_list = None
+            for doc_content in document_contents:
+                
+                # old version
+                # text_nodes = doc_content.find_all(string=True)
+                # text_nodes = [tn.strip() for tn in text_nodes if len(tn.strip()) > 0]
+                # text_nodes = [tn for tn in text_nodes if tn.lower() != "text"]
+                # text_nodes = [tn for tn in text_nodes if not tn.startswith("Art. ")]
+                # text_nodes = [formatting.clean_text_for_prompt(tn) for tn in text_nodes]
+                # section_name, section_content = " - ".join(text_nodes[:2]), text_nodes[2:]
+                # section_content = [c for c in section_content if not c.startswith("§")]
+                # section_content = [c for c in section_content if not c.startswith("Paragraph ")]
+                # section_content = [formatting.clean_text_for_prompt(c) for c in section_content]
+                # gesetz_structure[section_name.replace(" ", "")] = text_nodes[2:]
+
+                # new version
+                # gesetz_structure = {
+                #   "ueberschr_g1": {
+                #       "ueberschr_para": {
+                #           "gld_symbol": [ (title), absatz_text, absatz_text, ... ]
+                #        },
+                #       "gld_symbol": [ (title), absatz_text, absatz_text, ... ]
+                #   }
+                # }
+
+                # <h4 class="UeberschrG1 AlignCenter">
+                ueberschr_g1 = doc_content.find_all("h4", {"class": "UeberschrG1"})
+                if len(ueberschr_g1) > 0:
+                    assert len(ueberschr_g1) == 1
+                    curr_uberschr_g1 = ueberschr_g1[0].text.strip()
+                    if curr_uberschr_g1 not in gesetz_structure.keys(): 
+                        gesetz_structure[curr_uberschr_g1] = {}
+
+                # <h4 class="UeberschrPara AlignCenter">Abstammung</h4>
+                ueberschr_para = doc_content.find_all("h4", {"class": "UeberschrPara"})
+                if len(ueberschr_para) > 0:
+                    assert len(ueberschr_para) == 1
+                    curr_ueberschr_para = ueberschr_para[0].text.strip()
+                    if curr_ueberschr_para not in gesetz_structure[curr_uberschr_g1].keys():
+                        gesetz_structure[curr_uberschr_g1][curr_ueberschr_para] = {}
+
+                # # <div class="ParagraphMitAbsatzzahl">
+                # para_mit_abs = doc_content.find_all("div", {"class": "ParagraphMitAbsatzzahl"})
+                # if len(para_mit_abs) > 0:
+                #     assert len(para_mit_abs) == 1
+                #     curr_para_mit_abs = para_mit_abs[0]
+
+                    
+                # <div class="MarginTop4 AlignJustify">
+                gld_symbol = doc_content.find_all("div", {"class": "MarginTop4"})
+                if len(gld_symbol) > 0:
+                    # <span class="sr-only">Paragraph 8,</span>
+                    text = gld_symbol[0].find_all("span", {"class": "sr-only"})
+                    assert len(text) > 0
+                    curr_gld_symbol = text[0].text
+
+
+                wai_absatz_list = doc_content.find_all("ol", {"class": "wai-absatz-list"})
+                wai_list = doc_content.find_all("ol", {"class": "wai-list"})
+                if len(wai_absatz_list) > 0:
+                    assert len(wai_absatz_list) == 1
+                    lis = wai_absatz_list[0].find_all("li")
+                    law_text = [ li.text for li in lis]
+                
+                elif len(wai_list) > 0:
+                    assert len(wai_list) == 1
+                    lis = wai_list[0].find_all("li")
+                    
+                    # try to find title for list
+                    # <div class="MarginTop4 AlignJustify">
+                    top = doc_content.find_all("div", {"class": "MarginTop4"})
+                    if len(top) > 0:
+                        law_text = [top[0].text] + [ li.text for li in lis]
+                    else:
+                        law_text = [ li.text for li in lis]
+
+                else:
+                    pass
+
+
             # create cleaner gesetz structure
             gesetz_structure = self.structure_gesetz_helper(gesetz_structure)
 
@@ -644,12 +717,12 @@ if __name__ == "__main__":
     la = LawAgent()
     fragen = [
         "Welche Voraussetzungen müssen erfüllt sein, damit eine Person in Österreich die Staatsbürgerschaft erlangen kann?",
+        "Wie schnell darf ich auf der Autobahn mit einem Fahrrad fahren?",
         "Welche Behörde ist in Österreich für die Registrierung von Unternehmen zuständig und welche Schritte sind erforderlich, um ein Unternehmen rechtlich anzumelden?",
         "Was sind die rechtlichen Bestimmungen für die Kündigung eines Arbeitsvertrags in Österreich und welche Rechte haben Arbeitnehmer und Arbeitgeber in diesem Zusammenhang?",
         "Welche gesetzlichen Regelungen gelten in Österreich für den Schutz des geistigen Eigentums, insbesondere für Markenrechte und Urheberrechte?",
-        "Welche steuerrechtlichen Regelungen gelten in Österreich für die Besteuerung von Einkommen aus dem Verkauf von Immobilien und wie hoch ist der Steuersatz?"
         "Wie lange darf ein sich ein 15 jähriger in der Nacht draußen aufhalten?",
-        "Wie schnell darf ich auf der Autobahn mit einem Fahrrad fahren?",
+        "Welche steuerrechtlichen Regelungen gelten in Österreich für die Besteuerung von Einkommen aus dem Verkauf von Immobilien und wie hoch ist der Steuersatz?"
     ]
     for frage in fragen:
         la.run(frage)
