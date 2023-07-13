@@ -58,12 +58,12 @@ class LawAgent:
 
         self.chat = ChatOpenAI(
             model="gpt-3.5-turbo",
-            temperature=0.5,
+            temperature=0,
             max_tokens=2048
         )
         self.chat_16k = ChatOpenAI(
             model="gpt-3.5-turbo-16k",
-            temperature=0.5,
+            temperature=0,
             max_tokens=4096
         )
 
@@ -90,8 +90,14 @@ class LawAgent:
         ## INIT MAIN VARIABLES FOR AGENT
         if isinstance(question, str):
             self.rechtsfrage = question
-            self.add_message(SystemMessage(content=self.prompts["system"]))
-
+            self.add_message(
+                SystemMessage(
+                    content=self.prompts["system"]\
+                        .replace("{rechtsfrage}", self.rechtsfrage)\
+                        .replace("{gesetze_durchsucht}", str(self.gesetze_durchsucht)) \
+                        .replace("{summary}", str(self.summary))
+                )
+            )
             # TODO: Question interpretation and refinement -> alignment between agent and user on interpretation of question
 
 
@@ -118,15 +124,31 @@ class LawAgent:
                 ## SCRAPE GESETZ
                 gesetz_id = gesetz.split(" - ")[0]
                 gesetz_structure = self.get_gesetz_structure(gesetz_id)
-                gesetz_is_long = sum([
-                    len(k) + len("".join(v)) for k, v in gesetz_structure.items()]
-                ) > 2000
+                gesetz_is_long = len(str(gesetz_structure)) > 8096
 
                 if gesetz_is_long:
                     ## CHOOSE SEKTION VON GESETZ            
                     # choose sektion and analyse
-                    chosen_section = self.choose_section_from_gesetz(gesetz, gesetz_structure) 
-                    analysis = self.analyze_section_from_gesetz(gesetz, gesetz_structure, chosen_section)
+                    geltende_fassung = None
+                    chosen_section = self.choose_section_from_gesetz(gesetz, gesetz_structure)
+                    while geltende_fassung is None:
+
+                        while chosen_section not in gesetz_structure.keys():
+                            self.retry_completion()
+                            print("retrying completion")
+
+                        if isinstance(gesetz_structure[chosen_section], list):
+                            t = gesetz_structure[chosen_section]
+                            while len(t) == 1: t = t[0]
+                            geltende_fassung = "\n".join(t)
+                            
+                        elif isinstance(gesetz_structure[chosen_section], dict):
+                            gesetz_structure = gesetz_structure[chosen_section]
+                            chosen_section = self.choose_section_from_gesetz(gesetz, gesetz_structure)
+                        
+                        # TODO: prevent infinite loop
+
+                    analysis = self.analyze_section_from_gesetz(gesetz, geltende_fassung)
                     # add gesetz to gesetze_durchsucht
                     analyzed_section = analysis["analysierte_sektion"]
                     self.gesetze_durchsucht.append(f"{gesetz} - {analyzed_section}")
@@ -146,7 +168,6 @@ class LawAgent:
                     self.summarize_progress()
                     self.reset_messages()
                     continue
-
                 else:
                     # create summary and final report
                     self.summarize_progress()
@@ -414,7 +435,7 @@ class LawAgent:
             content=self.prompts["gesetzestext_teil_waehlen"].format(
                 context=context,
                 gesetz=gesetz,
-                struktur="\n".join([s for s in gesetz_structure.keys() if s.strip().startswith("§")]),
+                struktur="\n".join([s for s in gesetz_structure.keys()]),
                 output_format=formatting.dict_to_string(output_format)
             ) + "\n\nAchte darauf, dass du immer die gesamte Zeile zitierst und nicht nur die Nummer der Sektion!"
         )
@@ -457,10 +478,8 @@ class LawAgent:
     
 
 
-    def analyze_section_from_gesetz(self, gesetz, gesetz_structure, chosen_section):
-        assert chosen_section in gesetz_structure.keys()
+    def analyze_section_from_gesetz(self, gesetz, geltende_fassung):
 
-        geltende_fassung = gesetz_structure[chosen_section]
         output_format = {
             "vermutung": "stelle eine Vermutungen an ob der gebene Teil ausreichend ist um die Frage zu beantworten? waehle aus folgender liste: 'ja' | 'nein'",
             "begruendung": "eine kurze begruendung warum",
@@ -499,6 +518,22 @@ class LawAgent:
         # get chat completion and return the final report
         final_report = self.get_chat_completion(current_human_message, model="16k")
         return final_report
+    
+
+    def retry_completion(self):
+        
+        # specify human message so the law agent tries again
+        current_human_message = HumanMessage(
+            content=\
+                "Thanks a lot! But your output does not follow the specified format. "\
+                "Please try again. Do not explain yourself and do not give excuses. "\
+                "Make sure that your answer matches the previously specified output format exactly!"
+        )
+
+        # get chat completion and return the response
+        response = self.get_chat_completion(current_human_message, model="16k")
+        return response
+
 
     
     def get_chat_completion(self, human_message, model="4k"):
@@ -563,10 +598,9 @@ class LawAgent:
             document_contents = content.find_all("div", {"class": "documentContent"})
             
             gesetz_structure = {}
-            curr_uberschr_g1 = None
+            curr_ueberschr_g1 = None
             curr_ueberschr_para = None
-            curr_para_mit_abs = None
-            curr_wai_absatz_list = None
+            curr_gld_symbol = None
             for doc_content in document_contents:
                 
                 # old version
@@ -595,17 +629,23 @@ class LawAgent:
                 ueberschr_g1 = doc_content.find_all("h4", {"class": "UeberschrG1"})
                 if len(ueberschr_g1) > 0:
                     assert len(ueberschr_g1) == 1
-                    curr_uberschr_g1 = ueberschr_g1[0].text.strip()
-                    if curr_uberschr_g1 not in gesetz_structure.keys(): 
-                        gesetz_structure[curr_uberschr_g1] = {}
+                    curr_ueberschr_g1 = ueberschr_g1[0].text.strip()
+                    if curr_ueberschr_g1 not in gesetz_structure.keys(): 
+                        gesetz_structure[curr_ueberschr_g1] = {}
+                    
+                    curr_ueberschr_para = None
+                    curr_gld_symbol = None
+
 
                 # <h4 class="UeberschrPara AlignCenter">Abstammung</h4>
                 ueberschr_para = doc_content.find_all("h4", {"class": "UeberschrPara"})
                 if len(ueberschr_para) > 0:
                     assert len(ueberschr_para) == 1
-                    curr_ueberschr_para = ueberschr_para[0].text.strip()
-                    if curr_ueberschr_para not in gesetz_structure[curr_uberschr_g1].keys():
-                        gesetz_structure[curr_uberschr_g1][curr_ueberschr_para] = {}
+                    curr_ueberschr_para = formatting.key_formatting_for_dict(ueberschr_para[0].text.strip())
+                    if curr_ueberschr_para not in gesetz_structure[str(curr_ueberschr_g1)].keys():
+                        gesetz_structure[curr_ueberschr_g1][curr_ueberschr_para] = {}
+
+                    curr_gld_symbol = None
 
                 # # <div class="ParagraphMitAbsatzzahl">
                 # para_mit_abs = doc_content.find_all("div", {"class": "ParagraphMitAbsatzzahl"})
@@ -620,34 +660,70 @@ class LawAgent:
                     # <span class="sr-only">Paragraph 8,</span>
                     text = gld_symbol[0].find_all("span", {"class": "sr-only"})
                     assert len(text) > 0
-                    curr_gld_symbol = text[0].text
+                    curr_gld_symbol = formatting.key_formatting_for_dict(text[0].text)
 
+                else:
+                    # <h5 class="GldSymbol AlignJustify">
+                    gld_symbol = doc_content.find_all("h5", {"class": "GldSymbol"})
+                    if len(gld_symbol) > 0:
+                        curr_gld_symbol = formatting.key_formatting_for_dict(gld_symbol[0].find_all("span", {"class": "sr-only"})[0].text)
+                    
+                    
 
                 wai_absatz_list = doc_content.find_all("ol", {"class": "wai-absatz-list"})
                 wai_list = doc_content.find_all("ol", {"class": "wai-list"})
+                top = doc_content.find_all("div", {"class": "MarginTop4"})
                 if len(wai_absatz_list) > 0:
-                    assert len(wai_absatz_list) == 1
-                    lis = wai_absatz_list[0].find_all("li")
-                    law_text = [ li.text for li in lis]
+                    law_text = []
+                    for wal in wai_absatz_list:
+                        lis = wai_absatz_list[0].find_all("li")
+                        
+                        for li in lis:
+                            absatz_zahl = li.find_all("span", {"class": "sr-only"})[0].text
+                            law_text.append(li.text)
                 
                 elif len(wai_list) > 0:
-                    assert len(wai_list) == 1
-                    lis = wai_list[0].find_all("li")
-                    
-                    # try to find title for list
-                    # <div class="MarginTop4 AlignJustify">
-                    top = doc_content.find_all("div", {"class": "MarginTop4"})
-                    if len(top) > 0:
-                        law_text = [top[0].text] + [ li.text for li in lis]
-                    else:
-                        law_text = [ li.text for li in lis]
+                    law_text = []
+                    for wl in wai_list:
+                        lis = wl.find_all("li")
+                        # try to find title for list
+                        # <div class="MarginTop4 AlignJustify">
+                        if len(top) > 0:
+                            law_text.append([top[0].text] + [ li.text for li in lis])
+                        else:
+                            law_text.append([ li.text for li in lis])
 
+                # elif len(top) > 0:
+                #     law_text = top[0].text.strip()
+                #     law_text = [law_text]
                 else:
-                    pass
+                    law_text = [doc_content.text.strip()]
+
+                # TODO: add to gesetz_structure
+                # ...
+                if curr_ueberschr_g1 is not None:
+                    if curr_ueberschr_para is not None:
+                        if isinstance(gesetz_structure[curr_ueberschr_g1][curr_ueberschr_para], dict):
+                            if curr_gld_symbol not in gesetz_structure[curr_ueberschr_g1][curr_ueberschr_para].keys():
+                                gesetz_structure[curr_ueberschr_g1][curr_ueberschr_para][curr_gld_symbol] = [law_text]
+                            else:
+                                gesetz_structure[curr_ueberschr_g1][curr_ueberschr_para][curr_gld_symbol].append(law_text)
+                        else:
+                            if curr_gld_symbol not in gesetz_structure[curr_ueberschr_g1].keys():
+                                gesetz_structure[curr_ueberschr_g1][curr_gld_symbol] = [law_text]
+                            else:
+                                gesetz_structure[curr_ueberschr_g1][curr_gld_symbol].append(law_text)
+                    else:
+                        if curr_gld_symbol not in gesetz_structure[curr_ueberschr_g1].keys():
+                            gesetz_structure[curr_ueberschr_g1][curr_gld_symbol] = [law_text]
+                        else:
+                            gesetz_structure[curr_ueberschr_g1][curr_gld_symbol].append(law_text)
+                else:
+                    continue
 
 
-            # create cleaner gesetz structure
-            gesetz_structure = self.structure_gesetz_helper(gesetz_structure)
+            # # create cleaner gesetz structure
+            # gesetz_structure = self.structure_gesetz_helper(gesetz_structure)
 
             # save as json
             with open(gesetz_structure_path, "w") as f:
@@ -717,12 +793,12 @@ if __name__ == "__main__":
     la = LawAgent()
     fragen = [
         "Welche Voraussetzungen müssen erfüllt sein, damit eine Person in Österreich die Staatsbürgerschaft erlangen kann?",
-        "Wie schnell darf ich auf der Autobahn mit einem Fahrrad fahren?",
-        "Welche Behörde ist in Österreich für die Registrierung von Unternehmen zuständig und welche Schritte sind erforderlich, um ein Unternehmen rechtlich anzumelden?",
-        "Was sind die rechtlichen Bestimmungen für die Kündigung eines Arbeitsvertrags in Österreich und welche Rechte haben Arbeitnehmer und Arbeitgeber in diesem Zusammenhang?",
-        "Welche gesetzlichen Regelungen gelten in Österreich für den Schutz des geistigen Eigentums, insbesondere für Markenrechte und Urheberrechte?",
-        "Wie lange darf ein sich ein 15 jähriger in der Nacht draußen aufhalten?",
-        "Welche steuerrechtlichen Regelungen gelten in Österreich für die Besteuerung von Einkommen aus dem Verkauf von Immobilien und wie hoch ist der Steuersatz?"
+        # "Welche Behörde ist in Österreich für die Registrierung von Unternehmen zuständig und welche Schritte sind erforderlich, um ein Unternehmen rechtlich anzumelden?",
+        # "Wie schnell darf ich auf der Autobahn mit einem Fahrrad fahren?",
+        # "Was sind die rechtlichen Bestimmungen für die Kündigung eines Arbeitsvertrags in Österreich und welche Rechte haben Arbeitnehmer und Arbeitgeber in diesem Zusammenhang?",
+        # "Welche gesetzlichen Regelungen gelten in Österreich für den Schutz des geistigen Eigentums, insbesondere für Markenrechte und Urheberrechte?",
+        # "Wie lange darf ein sich ein 15 jähriger in der Nacht draußen aufhalten?",
+        # "Welche steuerrechtlichen Regelungen gelten in Österreich für die Besteuerung von Einkommen aus dem Verkauf von Immobilien und wie hoch ist der Steuersatz?"
     ]
     for frage in fragen:
         la.run(frage)
